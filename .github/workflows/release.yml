@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Версия для ручной сборки, например 1.0.0"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Показать версию Swift
+        run: swift --version
+
+      - name: Определить версию
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Собрать приложение
+        run: ./scripts/build-app.sh --version "${{ steps.version.outputs.value }}" --universal --zip
+
+      - name: Проверить подпись
+        run: codesign --verify --verbose "dist/Every Noise.app"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EveryNoise-${{ steps.version.outputs.value }}
+          path: dist/*.zip
+
+      - name: Опубликовать релиз
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            dist/EveryNoise-${{ steps.version.outputs.value }}.zip \
+            --title "Every Noise ${{ steps.version.outputs.value }}" \
+            --generate-notes
