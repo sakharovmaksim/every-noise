@@ -1,4 +1,4 @@
-// Запуск: xcrun swift scripts/make-icon.swift <путь к .icns>
+// App icon generator. Usage: xcrun swift scripts/make-icon.swift <path to .icns>
 import AppKit
 import Foundation
 
@@ -10,7 +10,7 @@ func render(size: Int) -> Data {
     let side = CGFloat(size)
     let image = NSImage(size: NSSize(width: side, height: side))
     image.lockFocus()
-    guard let context = NSGraphicsContext.current else { fatalError("нет графического контекста") }
+    guard let context = NSGraphicsContext.current else { fatalError("no graphics context") }
     context.imageInterpolation = .high
 
     let inset = side * 0.09
@@ -53,7 +53,7 @@ func render(size: Int) -> Data {
     guard let tiff = image.tiffRepresentation,
           let bitmap = NSBitmapImageRep(data: tiff),
           let png = bitmap.representation(using: .png, properties: [:]) else {
-        fatalError("не удалось отрисовать размер \(size)")
+        fatalError("could not render size \(size)")
     }
     return png
 }
@@ -82,4 +82,4 @@ try iconutil.run()
 iconutil.waitUntilExit()
 guard iconutil.terminationStatus == 0 else { exit(iconutil.terminationStatus) }
 try? FileManager.default.removeItem(at: workDir)
-print("Иконка собрана: \(output.path)")
+print("Icon built: \(output.path)")

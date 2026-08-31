@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Собирает Every Noise.app без Xcode: только swiftc из Command Line Tools.
+# Builds Every Noise.app without Xcode, using only swiftc from the Command Line Tools.
 #
-#   ./scripts/build-app.sh                 сборка под текущую архитектуру
+#   ./scripts/build-app.sh                 build for the current architecture
 #   ./scripts/build-app.sh --universal     universal binary (arm64 + x86_64)
 #   ./scripts/build-app.sh --version 1.2.0 --universal --zip
 set -euo pipefail
@@ -24,7 +24,7 @@ while [[ $# -gt 0 ]]; do
     --universal) UNIVERSAL=1; shift ;;
     --zip) MAKE_ZIP=1; shift ;;
     -h|--help) sed -n '2,7p' "$0"; exit 0 ;;
-    *) echo "Неизвестный аргумент: $1" >&2; exit 1 ;;
+    *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
 done
 
@@ -34,7 +34,7 @@ if [[ -z "$VERSION" ]]; then
 fi
 BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 COMMIT="$(git rev-parse --short=8 HEAD 2>/dev/null || echo unknown)"
-# Без пометки правок сборку по хэшу не воспроизвести.
+# Without the marker the hash does not identify the build.
 if ! git diff --quiet HEAD 2>/dev/null; then COMMIT="$COMMIT-dirty"; fi
 TAG="$(git tag --points-at HEAD 2>/dev/null | head -1)"
 BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -58,7 +58,7 @@ mkdir -p "$BUILD_DIR" "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 
 SLICES=()
 for arch in "${ARCHS[@]}"; do
-  echo "==> Компиляция $arch (macOS $DEPLOYMENT_TARGET)"
+  echo "==> Compiling $arch (macOS $DEPLOYMENT_TARGET)"
   slice="$BUILD_DIR/$BINARY_NAME-$arch"
   xcrun swiftc \
     -parse-as-library \
@@ -72,7 +72,7 @@ for arch in "${ARCHS[@]}"; do
   SLICES+=("$slice")
 done
 
-echo "==> Сборка бандла"
+echo "==> Assembling the bundle"
 if [[ ${#SLICES[@]} -gt 1 ]]; then
   xcrun lipo -create -output "$APP_DIR/Contents/MacOS/$BINARY_NAME" "${SLICES[@]}"
 else
@@ -81,7 +81,7 @@ fi
 chmod +x "$APP_DIR/Contents/MacOS/$BINARY_NAME"
 
 if [[ ! -f Resources/AppIcon.icns ]]; then
-  echo "==> Генерация иконки"
+  echo "==> Generating the icon"
   xcrun swift scripts/make-icon.swift Resources/AppIcon.icns
 fi
 cp Resources/AppIcon.icns "$APP_DIR/Contents/Resources/AppIcon.icns"
@@ -96,15 +96,15 @@ sed -e "s|__VERSION__|$VERSION|" \
     Resources/Info.plist > "$APP_DIR/Contents/Info.plist"
 printf 'APPL????' > "$APP_DIR/Contents/PkgInfo"
 
-echo "==> Подпись (ad-hoc)"
+echo "==> Signing (ad-hoc)"
 codesign --force --sign - --identifier "$BUNDLE_ID" --timestamp=none "$APP_DIR"
 codesign --verify --strict "$APP_DIR"
 
-echo "==> Готово: $APP_DIR (версия $VERSION, сборка $BUILD_NUMBER)"
+echo "==> Done: $APP_DIR (version $VERSION, build $BUILD_NUMBER)"
 
 if [[ $MAKE_ZIP -eq 1 ]]; then
   ZIP="$DIST_DIR/$BINARY_NAME-$VERSION.zip"
   rm -f "$ZIP"
   ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$ZIP"
-  echo "==> Архив: $ZIP"
+  echo "==> Archive: $ZIP"
 fi

@@ -1,136 +1,137 @@
-# Every Noise — возможности
+# Every Noise — features
 
-Подробное описание того, что умеет приложение. Установка и быстрый старт — в
+A detailed tour of what the app can do. For installation and a quick start see
 [README.md](README.md).
 
-## Неслышимый тон по расписанию
+## The inaudible tone on a schedule
 
-Основная работа: раз в заданный интервал приложение проигрывает короткий синусоидальный
-импульс на частоте, которую человек не слышит, а детектор сигнала усилителя видит.
+The core job: at the chosen interval the app plays a short sine pulse at a frequency people
+cannot hear but the amplifier's signal detector can.
 
-| Параметр | Значения | По умолчанию |
+| Setting | Values | Default |
 | --- | --- | --- |
-| Частота | 22, 20, 19, 18, 17 кГц и два низких пресета — 20 и 10 Гц | 20 кГц |
-| Периодичность | 15 с, 30 с, 1, 2, 3, 5, 10, 15, 30 мин, 1 час | 30 с |
-| Длительность импульса | 0,25 / 0,5 / 1 / 2 / 3 с | 1 с |
-| Уровень | 1–100 % | 12 % (−18 dBFS) |
+| Frequency | 22, 20, 19, 18, 17 kHz plus two low presets — 20 and 10 Hz | 20 kHz |
+| Interval | 15 s, 30 s, 1, 2, 3, 5, 10, 15, 30 min, 1 hour | 30 s |
+| Pulse length | 0.25 / 0.5 / 1 / 2 / 3 s | 1 s |
+| Level | 1–100 % | 12 % (−18 dBFS) |
 
-Кнопка **«Протестировать импульс»** во вкладке «Настройки», под выбором частоты, играет
-импульс с текущими параметрами прямо сейчас. Работает и когда импульсы на паузе: в этом
-случае аудиотракт освобождается сразу после импульса, чтобы не мешать Mac засыпать. Тот же
-импульс есть в меню трея — «Воспроизвести сейчас». Оба пишутся в журнал, если запись
-включена.
+The **Test pulse** button in Settings, right below the frequency picker, plays a pulse with
+the current settings immediately. It works while pulses are paused too: in that case the
+audio chain is released right after the pulse so the Mac can still fall asleep. The same
+action is in the menu bar under **Play now**. Both are written to the log when logging is on.
 
-У импульса плавные фронт и спад по косинусу длиной 20 мс. Без них резкий старт синуса даёт
-широкополосный щелчок, который слышно, даже когда сам тон неслышим.
+The pulse has a 20 ms raised-cosine fade in and out. Without it the abrupt start of a sine
+produces a broadband click that is audible even though the tone itself is not.
 
-Длительность и уровень важнее, чем кажется: детекторы auto-standby интегрируют сигнал, и
-части из них секунды мало. Уровень 10–15 % — разумный старт, детектору обычно хватает
-единиц милливольт.
+Pulse length and level matter more than they look: auto-standby detectors integrate the
+signal, and for some of them one second is not enough. A level of 10–15 % is a sensible
+start — a detector usually needs only a few millivolts.
 
-## Определение подключения и подстройка частоты
+## Connection detection and frequency adaptation
 
-Приложение читает тип подключения через CoreAudio и знает потолок частоты для текущего
-тракта — меньшее из двух: ограничение кодека и 0,45 × частота дискретизации устройства.
-Если выбранный пресет выше потолка, играется ближайший подходящий, а **выбор в настройках
-не меняется** — вернётесь на другое устройство, заиграет он.
+The app reads the connection type through CoreAudio and knows the frequency ceiling of the
+current chain — the lower of two limits: the codec and 0.45 × the device sample rate. If the
+chosen preset is above the ceiling, the closest suitable one is played and **your setting
+stays untouched** — switch back to another device and it plays again.
 
-| Подключение | Потолок | Что играет при выбранных 20 кГц |
+| Connection | Ceiling | What plays when 20 kHz is selected |
 | --- | --- | --- |
-| Джек 3,5 мм, USB, HDMI на 48 кГц | 21,6 кГц | 20 кГц |
-| То же на 44,1 кГц | 19,8 кГц | 19 кГц |
-| USB-ЦАП на 96 кГц и выше | 43 кГц и выше | 20 кГц, доступны 22 кГц |
-| AirPlay, Bluetooth | ~18 кГц (кодек AAC) | 18 кГц |
+| 3.5 mm jack, USB, HDMI at 48 kHz | 21.6 kHz | 20 kHz |
+| The same at 44.1 kHz | 19.8 kHz | 19 kHz |
+| USB DAC at 96 kHz and above | 43 kHz and above | 20 kHz, 22 kHz available |
+| AirPlay, Bluetooth | ~18 kHz (AAC codec) | 18 kHz |
 
-Ниже 17 кГц автоматика не опускается: там тон уже слышат подростки и дети, такое решение
-принимает только пользователь. Подстройка отключается тумблером «Подстраивать частоту под
-подключение» — тогда вместо неё появится предупреждение.
+The automatic choice never goes below 17 kHz: teenagers and children hear that range, and
+only the user should make that call. Adaptation is turned off with the **Adapt frequency to
+the connection** toggle — a warning takes its place.
 
-Смена устройства отслеживается напрямую через CoreAudio HAL, а не только через аудиодвижок.
-Благодаря этому ловится и переключение динамики ↔ джек 3,5 мм: на MacBook это одно
-устройство с разными источниками, и обычные уведомления о смене конфигурации на него не
-срабатывают.
+Device changes are tracked through the CoreAudio HAL directly, not only through the audio
+engine. That is what catches the speakers ↔ 3.5 mm jack switch: on a MacBook these are one
+device with different data sources, and the usual configuration-change notifications do not
+fire for it.
 
-## Удержание маршрута
+## Route hold
 
-AirPlay и Bluetooth разбирают сессию, когда звука нет. Между импульсами усилитель успевает
-заснуть, а начало следующего импульса съедается переподключением — приложение работает,
-а толку нет.
+AirPlay and Bluetooth tear the session down when there is no audio. Between pulses the
+amplifier has time to fall asleep, and reconnection eats the start of the next pulse — the
+app runs, but to no effect.
 
-В режиме удержания приложение непрерывно отдаёт ту же частоту на −70 dBFS. Этого хватает,
-чтобы поток не считался пустым, и это на 40 дБ ниже порога слышимости, так что твитеры не
-нагружаются. Несущая зациклена по целому числу периодов — на стыке цикла нет щелчка.
+With route hold the app continuously emits the same frequency at −70 dBFS. That is enough
+for the stream not to count as empty, and it is 40 dB below the threshold of hearing, so
+tweeters are not stressed. The carrier loops over a whole number of periods, so there is no
+click at the loop seam.
 
-Режим «Автоматически» включает удержание для AirPlay, Bluetooth и составных устройств; для
-джека и USB оно не нужно. Режим «Всегда» пригодится, если USB-ЦАП сам глушит поток в тишине
-и щёлкает на первом импульсе.
+**Automatic** enables route hold for AirPlay, Bluetooth and aggregate devices; a jack or USB
+does not need it. **Always** is useful when a USB DAC mutes its own output on silence and
+clicks on the first pulse.
 
-## Приложение не мешает Mac спать
+## The app does not keep your Mac awake
 
-Пока идёт воспроизведение, macOS от имени приложения держит `PreventUserIdleSystemSleep` —
-это относится к любой программе, играющей звук. Без специальных мер Mac не уснул бы никогда.
+While audio is playing, macOS holds `PreventUserIdleSystemSleep` on the app's behalf — this
+applies to any program that plays sound. Without countermeasures the Mac would never fall
+asleep.
 
-Поэтому импульсы останавливаются, а аудиотракт отпускается в двух случаях:
+So pulses stop and the audio chain is released in two cases:
 
-- **простой пользователя** — 5 минут без клавиатуры и мыши. При первом же действии импульсы
-  возобновляются, не дожидаясь следующего тика;
-- **уход в сон** — по системному уведомлению, до того как Mac заснёт. Так аудиоустройство
-  освобождается корректно и после пробуждения поднимается с чистого листа.
+- **user inactivity** — 5 minutes without keyboard or mouse. The first action resumes pulses
+  immediately, without waiting for the next tick;
+- **going to sleep** — on the system notification, before the Mac actually sleeps. The audio
+  device is released cleanly and comes back from scratch after wake.
 
-Если Mac проснулся сам — по расписанию обслуживания или на сетевую активность, — импульсы
-остаются на паузе: пользователя за маком нет, будить усилитель не для чего.
+If the Mac wakes on its own — for scheduled maintenance or network activity — pulses stay
+paused: nobody is at the machine, so there is nothing to keep the amplifier awake for.
 
-Отключается тумблером «Приостанавливать при простое Mac».
+Turned off with the **Pause when the Mac is idle** toggle.
 
-## Предупреждения о проблемах тракта
+## Warnings about the audio chain
 
-Вкладка «Статус» и журнал сообщают, когда тон физически не дойдёт до усилителя:
+The Status tab and the log report when the tone physically cannot reach the amplifier:
 
-- система замьючена или громкость на нуле;
-- аналоговый выход при системной громкости ниже 10 % — сигнал может не дотянуть до порога
-  детектора;
-- частота снижена из-за формата устройства;
-- кодек AirPlay или Bluetooth срежет выбранную частоту (если подстройка выключена).
+- the system is muted or the volume is at zero;
+- an analog output at a system volume below 10 % — the signal may not reach the detector's
+  threshold;
+- the frequency was lowered because of the device format;
+- the AirPlay or Bluetooth codec will cut the selected frequency (when adaptation is off).
 
-Там же видно текущее устройство, тип подключения, частоту дискретизации, системную
-громкость, время последнего и следующего импульса и счётчик импульсов за сессию.
+The same tab shows the current device, connection type, sample rate, system volume, the time
+of the last and next pulse and the pulse counter for this session.
 
-## Журнал аудита
+## Audit log
 
-Файл `~/Library/Logs/EveryNoise/every-noise.log`, ротация при 512 КБ, хранится 5 поколений
-— около недели истории при интервале 30 секунд. Запись атомарная, так что файл остаётся
-корректным при любых обстоятельствах.
+The file is `~/Library/Logs/EveryNoise/every-noise.log`, rotated at 512 KB with 5
+generations kept — about a week of history at a 30-second interval. Writes are atomic, so
+the file stays valid under any circumstances.
 
-Пишутся: старт и остановка, каждый импульс с параметрами и устройством вывода, смена
-маршрута, снижение частоты, включение и выключение удержания, паузы по простою и сну,
-изменения настроек, все предупреждения и ошибки.
+Recorded events: start and stop, every pulse with its settings and output device, route
+changes, frequency reductions, route hold going on and off, pauses for inactivity and sleep,
+settings changes, and every warning and error.
 
-Вкладка «Журнал» показывает последние 500 записей, включая прочитанные из файла при
-запуске, фильтрует их по уровню и открывает файл в Finder. Флажок «Запись» в нижней панели
-останавливает ведение журнала; границы паузы отмечаются в самом журнале, чтобы в файле не
-осталось необъяснённого разрыва.
+The Log tab shows the last 500 entries, including the ones read from the file at launch,
+filters them by level and reveals the file in Finder. The **Logging** checkbox in the bottom
+bar stops recording; the boundaries of the pause are marked in the log itself so the file has
+no unexplained gap.
 
-## Строка меню и окно
+## Menu bar and window
 
-Меню в трее: текущее состояние, пауза и возобновление, импульс по требованию, быстрая смена
-частоты и периодичности, открытие окна и выход. Иконка — та же волна, что на иконке
-приложения, в паузе она гаснет.
+The menu bar menu holds the current state, pause and resume, a pulse on demand, quick
+frequency and interval switching, opening the window and quitting. The icon is the same wave
+as the app icon, dimmed while paused.
 
-Иконка в Dock показывается, только пока открыто окно: приложение живёт в строке меню и не
-занимает место в Dock без надобности. Вторая копия не запускается — повторный запуск
-активирует уже работающую.
+The Dock icon only shows while the window is open: the app lives in the menu bar and does not
+take Dock space for nothing. A second copy will not start — launching again activates the
+running one.
 
-## Язык интерфейса
+## Interface language
 
-Русский и английский, переключатель во вкладке «Настройки». Язык меняется на лету, без
-перезапуска приложения; при первом запуске выбирается по языку системы. Уже записанные
-строки журнала остаются на том языке, на котором были записаны, — это история, а не
-интерфейс.
+English and Russian, switched in Settings. The language changes on the fly, without
+restarting the app; on first launch it follows the system language. Log lines that are
+already written keep the language they were written in — that is history, not interface.
 
-## Автозапуск и сведения о сборке
+## Launch at login and build info
 
-Автозапуск при входе в систему через `SMAppService`; требование системы — приложение должно
-лежать в `/Applications`. Ошибка регистрации попадает в журнал.
+Launch at login uses `SMAppService`; the system requires the app to live in `/Applications`.
+A registration failure goes to the log.
 
-Внизу вкладки «Настройки» — версия, номер сборки, коммит, тег, дата сборки и архитектуры.
-Кнопка «Скопировать для отчёта» кладёт всё это вместе с версией macOS в буфер обмена.
+At the bottom of Settings you will find the version, build number, commit, tag, build date
+and architectures. The **Copy for a report** button puts all of it, together with the macOS
+version, on the clipboard.
