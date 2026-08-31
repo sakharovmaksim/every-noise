@@ -1,12 +1,9 @@
 import AppKit
 
-/// Иконка в строке меню: та же волна, что на иконке приложения.
-/// Геометрия повторяет `scripts/make-icon.swift` — при правке иконки правьте оба места.
+/// Геометрия повторяет `scripts/make-icon.swift` — правьте оба места.
 enum MenuBarIcon {
     private static let size = NSSize(width: 19, height: 16)
 
-    /// Активное состояние — волна в полную силу, пауза — та же волна вполсилы.
-    /// Шаблонное изображение, поэтому система сама красит его под тему строки меню.
     static func wave(active: Bool) -> NSImage {
         active ? activeImage : idleImage
     }
@@ -25,7 +22,6 @@ enum MenuBarIcon {
             for step in 0...steps {
                 let t = CGFloat(step) / CGFloat(steps)
                 let x = left + (right - left) * t
-                // Амплитуда гаснет к краям — так волна читается даже в 16 точек.
                 let taper = sin(.pi * t)
                 let y = midY + sin(t * .pi * 4) * amplitude * (0.35 + 0.65 * taper)
                 if step == 0 {

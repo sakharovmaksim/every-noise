@@ -16,8 +16,6 @@ enum KeeperStatus: Equatable, Sendable {
     }
 }
 
-/// Планировщик импульсов: держит цикл ожидания, дергает `ToneEngine`,
-/// следит за маршрутом вывода и пишет всё происходящее в журнал аудита.
 @Observable
 final class KeepAwakeController {
     private(set) var status: KeeperStatus = .stopped
@@ -30,6 +28,29 @@ final class KeepAwakeController {
 
     var isRunning: Bool { status == .running }
 
+    /// Минимум из ограничения кодека и 0,45 × частоты дискретизации.
+    var routeFrequencyCeiling: Double {
+        var ceiling = Double.infinity
+        if let device {
+            ceiling = min(ceiling, device.transport.recommendedMaxFrequency)
+            if device.sampleRate > 0 {
+                ceiling = min(ceiling, device.sampleRate * 0.45)
+            }
+        }
+        return ceiling
+    }
+
+    var effectivePreset: TonePreset {
+        let ceiling = routeFrequencyCeiling
+        guard settings.adaptFrequencyToRoute,
+              settings.preset.frequency > ceiling,
+              let fitted = TonePreset.bestFit(maxFrequency: ceiling)
+        else { return settings.preset }
+        return fitted
+    }
+
+    var isFrequencyAdapted: Bool { effectivePreset != settings.preset }
+
     @ObservationIgnored private let settings: AppSettings
     @ObservationIgnored private let log: AuditLog
     @ObservationIgnored private let engine = ToneEngine()
@@ -37,8 +58,7 @@ final class KeepAwakeController {
     @ObservationIgnored private var loop: Task<Void, Never>?
     @ObservationIgnored private var activity: NSObjectProtocol?
 
-    /// Всё, что описывает маршрут; громкость сюда не входит, иначе журнал засорится
-    /// при каждом нажатии клавиши громкости.
+    /// Без громкости: иначе журнал засорится при каждом нажатии клавиши.
     private struct RouteSignature: Equatable {
         var deviceID: UInt32
         var name: String
@@ -46,6 +66,8 @@ final class KeepAwakeController {
         var sampleRate: Double
     }
     @ObservationIgnored private var routeSignature: RouteSignature?
+    @ObservationIgnored private var appliedPreset: TonePreset?
+    @ObservationIgnored private var lastClampNotice: String?
 
     init(settings: AppSettings, log: AuditLog) {
         self.settings = settings
@@ -81,6 +103,7 @@ final class KeepAwakeController {
         beginActivity()
         refreshDevice()
         log.info("Запуск: \(settings.preset.shortTitle), импульс \(settings.duration.title), \(settings.interval.title.lowercased()), уровень \(levelText)")
+        syncFrequencyToRoute()
         applyRouteHold()
         warnAboutTransportIfNeeded()
         nextPulseDate = Date()
@@ -103,7 +126,7 @@ final class KeepAwakeController {
         isRunning ? stop() : start()
     }
 
-    /// Ручной импульс из меню — не сдвигает расписание.
+    /// Не сдвигает расписание.
     func pulseNow() {
         emit(scheduled: false)
     }
@@ -118,7 +141,7 @@ final class KeepAwakeController {
                 if let next = nextPulseDate {
                     let delay = next.timeIntervalSinceNow
                     if delay > 0 {
-                        // ContinuousClock учитывает время сна Mac: после пробуждения импульс уйдёт сразу.
+                        // ContinuousClock учитывает сон Mac: после пробуждения импульс уйдёт сразу.
                         try? await Task.sleep(for: .seconds(delay))
                     }
                 }
@@ -132,7 +155,7 @@ final class KeepAwakeController {
     private func emit(scheduled: Bool) {
         do {
             let report = try engine.play(
-                frequency: settings.preset.frequency,
+                frequency: effectivePreset.frequency,
                 duration: settings.duration.seconds,
                 level: settings.level
             )
@@ -148,7 +171,13 @@ final class KeepAwakeController {
             log.info(line)
 
             if report.wasClamped {
-                log.warning("Частота \(format(hz: report.requestedFrequency)) недоступна на \(Int(report.sampleRate)) Гц и снижена до \(format(hz: report.frequency)). Поднимите частоту дискретизации в «Настройке Audio-MIDI».")
+                let notice = "Частота \(format(hz: report.requestedFrequency)) недоступна на \(Int(report.sampleRate)) Гц и снижена до \(format(hz: report.frequency)). Поднимите частоту дискретизации в «Настройке Audio-MIDI» или включите подстройку частоты."
+                if lastClampNotice != notice {
+                    log.warning(notice)
+                    lastClampNotice = notice
+                }
+            } else {
+                lastClampNotice = nil
             }
             if let device, device.isSilenced {
                 log.warning("Вывод \(device.name) замьючен или громкость на нуле — усилитель сигнал не увидит.")
@@ -166,16 +195,14 @@ final class KeepAwakeController {
 
     // MARK: - Маршрут вывода
 
-    /// Несущая удержания нужна там, где сессия рвётся на тишине: AirPlay, Bluetooth,
-    /// составные устройства. Для джека и USB она бессмысленна.
     private func applyRouteHold() {
         let shouldHold = isRunning && settings.routeHold.isEnabled(for: device?.transport)
         guard shouldHold != isHoldingRoute else { return }
         if shouldHold {
             do {
-                try engine.startRouteHold(frequency: settings.preset.frequency)
+                try engine.startRouteHold(frequency: effectivePreset.frequency)
                 isHoldingRoute = true
-                log.info("Удержание маршрута включено: непрерывная несущая \(settings.preset.shortTitle) на −70 dBFS (\(device?.transport.title ?? "маршрут"))")
+                log.info("Удержание маршрута включено: непрерывная несущая \(effectivePreset.shortTitle) на −70 dBFS (\(device?.transport.title ?? "маршрут"))")
             } catch {
                 log.error("Не удалось включить удержание маршрута: \(error.localizedDescription)")
             }
@@ -186,10 +213,38 @@ final class KeepAwakeController {
         }
     }
 
+    private func syncFrequencyToRoute() {
+        let preset = effectivePreset
+        defer { appliedPreset = preset }
+        guard appliedPreset != preset else { return }
+
+        if isFrequencyAdapted {
+            log.info("\(adaptationReason): частота снижена с \(settings.preset.shortTitle) до \(preset.shortTitle). Выбор в настройках не изменён.")
+        } else if appliedPreset != nil {
+            log.info("Возврат к выбранной частоте \(preset.shortTitle)")
+        }
+
+        // Несущая играет на той же частоте — пересобираем.
+        if isHoldingRoute {
+            engine.stopRouteHold()
+            isHoldingRoute = false
+        }
+    }
+
+    private var adaptationReason: String {
+        guard let device else { return "Маршрут" }
+        if device.transport.compressesAudio, settings.preset.frequency > device.transport.recommendedMaxFrequency {
+            return "\(device.transport.title) сжимает звук кодеком AAC и режет всё выше ~18 кГц"
+        }
+        return "\(device.summary) работает на \(Int(device.sampleRate)) Гц"
+    }
+
     private func warnAboutTransportIfNeeded() {
         guard let device else { return }
-        if device.transport.compressesAudio, settings.preset.frequency > device.transport.recommendedMaxFrequency {
-            log.warning("\(device.transport.title) сжимает звук кодеком AAC и срезает всё выше ~18 кГц: тон \(settings.preset.shortTitle) до усилителя, скорее всего, не дойдёт. Выберите 17–18 кГц.")
+        if device.transport.compressesAudio,
+           !settings.adaptFrequencyToRoute,
+           settings.preset.frequency > device.transport.recommendedMaxFrequency {
+            log.warning("\(device.transport.title) сжимает звук кодеком AAC и срезает всё выше ~18 кГц: тон \(settings.preset.shortTitle) до усилителя, скорее всего, не дойдёт. Выберите 17–18 кГц или включите подстройку частоты.")
         }
         if device.transport == .airPlay {
             log.info("AirPlay работает на 44,1 кГц и добавляет задержку около 2 секунд — импульс короче 1 секунды может не дойти целиком.")
@@ -206,6 +261,7 @@ final class KeepAwakeController {
         } else {
             log.warning("Маршрут изменился (\(source)): активного устройства вывода нет")
         }
+        syncFrequencyToRoute()
         applyRouteHold()
         warnAboutTransportIfNeeded()
     }
@@ -234,6 +290,7 @@ final class KeepAwakeController {
             _ = settings.duration
             _ = settings.level
             _ = settings.routeHold
+            _ = settings.adaptFrequencyToRoute
         } onChange: { [weak self] in
             Task { @MainActor in
                 self?.settingsDidChange()
@@ -245,11 +302,11 @@ final class KeepAwakeController {
     private func settingsDidChange() {
         log.info("Настройки изменены: \(settings.preset.shortTitle), \(settings.interval.title.lowercased()), импульс \(settings.duration.title), уровень \(levelText)")
         guard isRunning else { return }
-        // Частота могла смениться — несущую удержания надо пересобрать.
         if isHoldingRoute {
             engine.stopRouteHold()
             isHoldingRoute = false
         }
+        syncFrequencyToRoute()
         applyRouteHold()
         warnAboutTransportIfNeeded()
         let base = lastPulseDate ?? Date()
@@ -275,6 +332,7 @@ final class KeepAwakeController {
             try engine.start()
             refreshDevice()
             isHoldingRoute = false
+            syncFrequencyToRoute()
             applyRouteHold()
             nextPulseDate = Date()
             runLoop()

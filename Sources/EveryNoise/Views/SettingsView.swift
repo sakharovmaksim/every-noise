@@ -70,10 +70,11 @@ struct SettingsView: View {
                         Text(mode.title).tag(mode)
                     }
                 }
+                Toggle("Подстраивать частоту под подключение", isOn: $settings.adaptFrequencyToRoute)
             } header: {
                 Text("Подключение усилителя")
             } footer: {
-                Text("AirPlay и Bluetooth разрывают сессию на тишине: усилитель успевает заснуть между импульсами, а начало следующего импульса съедается переподключением. В режиме удержания приложение непрерывно отдаёт ту же частоту на −70 dBFS — это на 40 дБ ниже порога слышимости и не нагружает твитеры, но маршрут остаётся живым. «Автоматически» включает удержание только для AirPlay, Bluetooth и составных устройств; для джека 3,5 мм и USB оно не нужно.")
+                Text("AirPlay и Bluetooth разрывают сессию на тишине: усилитель успевает заснуть между импульсами, а начало следующего импульса съедается переподключением. В режиме удержания приложение непрерывно отдаёт ту же частоту на −70 dBFS — это на 40 дБ ниже порога слышимости и не нагружает твитеры, но маршрут остаётся живым. «Автоматически» включает удержание только для AirPlay, Bluetooth и составных устройств; для джека 3,5 мм и USB оно не нужно.\n\nПодстройка частоты нужна там же: кодек AAC режет всё выше ~18 кГц, поэтому на AirPlay и Bluetooth приложение играет 18 кГц вместо выбранных 19–22. Выбор в пикере «Частота» при этом не меняется — как только вернётесь на джек или USB, заиграет он.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -88,7 +89,50 @@ struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+
+            BuildInfoSection()
         }
         .formStyle(.grouped)
+    }
+}
+
+private struct BuildInfoSection: View {
+    private let info = BuildInfo.current
+    @State private var copied = false
+
+    var body: some View {
+        Section {
+            LabeledContent("Версия") {
+                ValueText(info.versionText)
+            }
+            if let tag = info.tag {
+                LabeledContent("Тег") { ValueText(tag) }
+            }
+            if let commit = info.commit {
+                LabeledContent("Коммит") { ValueText(commit) }
+            }
+            if let date = info.dateText {
+                LabeledContent("Собрано") { ValueText(date) }
+            }
+            if let architectures = info.architectures {
+                LabeledContent("Архитектуры") { ValueText(architectures) }
+            }
+            HStack {
+                Spacer()
+                Button(copied ? "Скопировано" : "Скопировать для отчёта") {
+                    info.copyReport()
+                    copied = true
+                }
+                .disabled(copied)
+            }
+        } header: {
+            Text("Сборка")
+        }
+        .textSelection(.enabled)
+        .task(id: copied) {
+            guard copied else { return }
+            try? await Task.sleep(for: .seconds(2))
+            copied = false
+        }
     }
 }

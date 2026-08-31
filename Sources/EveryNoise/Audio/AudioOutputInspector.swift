@@ -1,7 +1,6 @@
 import CoreAudio
 import Foundation
 
-/// Как усилитель подключён к маку — от этого зависит, что доедет до его входа.
 enum OutputTransport: Equatable, Sendable {
     case builtInSpeakers
     case headphoneJack
@@ -25,12 +24,11 @@ enum OutputTransport: Equatable, Sendable {
         }
     }
 
-    /// Тракты со сжатием: AAC режет ультразвук, тон выше ~18 кГц до усилителя не доедет.
+    /// AAC режет всё выше ~18 кГц.
     var compressesAudio: Bool {
         self == .airPlay || self == .bluetooth
     }
 
-    /// Маршруты, которые рвутся при тишине, поэтому их нужно удерживать несущей.
     var needsRouteHold: Bool {
         switch self {
         case .airPlay, .bluetooth, .aggregate: true
@@ -38,7 +36,6 @@ enum OutputTransport: Equatable, Sendable {
         }
     }
 
-    /// Верхняя разумная частота тона для этого подключения.
     var recommendedMaxFrequency: Double {
         compressesAudio ? 18_000 : .infinity
     }
@@ -53,14 +50,13 @@ struct OutputDeviceInfo: Equatable, Sendable {
     var volume: Float?
     var isMuted: Bool?
 
-    /// Тон не дойдёт до усилителя, если система замьючена или громкость выкручена в ноль.
     var isSilenced: Bool {
         if isMuted == true { return true }
         if let volume, volume < 0.005 { return true }
         return false
     }
 
-    /// Аналоговый выход мака регулируется системной громкостью: на 10 % сигнал уже слабый.
+    /// Аналоговый выход зависит от системной громкости: ниже 10 % сигнал уже слабый.
     var isAnalogAndQuiet: Bool {
         guard transport == .headphoneJack || transport == .builtInSpeakers else { return false }
         guard let volume else { return false }
@@ -68,12 +64,11 @@ struct OutputDeviceInfo: Equatable, Sendable {
     }
 
     var summary: String {
-        "\(name) · \(transport.title)"
+        // У AirPlay имя устройства совпадает с типом подключения — не дублируем.
+        name.caseInsensitiveCompare(transport.title) == .orderedSame ? name : "\(name) · \(transport.title)"
     }
 }
 
-/// Тонкая обёртка над CoreAudio HAL: какое устройство сейчас играет, как подключено
-/// и не замьючено ли оно.
 enum AudioOutputInspector {
     nonisolated static func current() -> OutputDeviceInfo? {
         guard let deviceID = defaultOutputDevice() else { return nil }
@@ -115,8 +110,7 @@ enum AudioOutputInspector {
         return value as String
     }
 
-    /// Тип подключения; для встроенного звука дополнительно смотрим источник данных,
-    /// потому что динамики и джек 3,5 мм — это одно устройство с разными data source.
+    /// Для встроенного звука смотрим ещё и data source: динамики и джек — одно устройство.
     private nonisolated static func transport(of device: AudioDeviceID) -> OutputTransport {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyTransportType,

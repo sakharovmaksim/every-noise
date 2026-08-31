@@ -15,6 +15,11 @@
 cp -R "dist/Every Noise.app" /Applications && open -a "Every Noise"
 ```
 
+Во вкладке «Настройки» приложение показывает сведения о сборке: версию, номер, коммит,
+тег, дату и архитектуры. Всё, кроме версии, скрипт подставляет в `Info.plist` (`GitCommit`,
+`GitTag`, `BuildDate`, `BuildArchitectures`), поэтому при сборке в обход скрипта эти строки
+просто не отображаются.
+
 Скрипт компилирует исходники (Swift 6, `-O -whole-module-optimization`, цель macOS 15.0),
 склеивает архитектуры через `lipo`, собирает `.app` с `Info.plist` и иконкой и подписывает
 ad-hoc подписью. Версия по умолчанию берётся из последнего git-тега, номер сборки — из
@@ -51,6 +56,7 @@ Sources/EveryNoise/
   Audio/AudioOutputInspector.swift  CoreAudio HAL: устройство, тип подключения, mute
   Audio/AudioRouteMonitor.swift     слушатели HAL: джек, AirPlay, смена формата
   Support/AuditLog.swift            журнал в памяти + файл с ротацией
+  Support/BuildInfo.swift           сведения о сборке из Info.plist
   Support/SingleInstance.swift      защита от второй копии приложения
   Views/                            StatusView, SettingsView, LogView, MenuBarContent,
                                     MenuBarIcon

@@ -9,7 +9,6 @@ enum PulseInterval: Int, CaseIterable, Identifiable, Sendable {
     var id: Int { rawValue }
     var seconds: TimeInterval { TimeInterval(rawValue) }
 
-    /// Короткая подпись для статуса: «30 с», «5 мин».
     var shortTitle: String {
         switch self {
         case .s15: "15 с"
@@ -25,7 +24,6 @@ enum PulseInterval: Int, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// Подпись для меню и пикеров.
     var title: String {
         switch self {
         case .s15: "Каждые 15 секунд"
@@ -42,7 +40,7 @@ enum PulseInterval: Int, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// Пресеты частот. Подробный разбор — в README, раздел «Какую частоту выбрать».
+/// Разбор частот — в README.
 enum TonePreset: String, CaseIterable, Identifiable, Sendable {
     case infra10, sub20, khz17, khz18, khz19, khz20, khz22
 
@@ -103,8 +101,14 @@ enum TonePreset: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// Минимальная частота дискретизации, при которой тон воспроизводится без риска алиасинга.
     var requiredSampleRate: Double { frequency / 0.45 }
+
+    /// Ниже 17 кГц не опускаемся: там тон уже слышат подростки.
+    static func bestFit(maxFrequency: Double) -> TonePreset? {
+        allCases
+            .filter { $0.frequency >= 17_000 && $0.frequency <= maxFrequency }
+            .max { $0.frequency < $1.frequency }
+    }
 }
 
 enum PulseDuration: Double, CaseIterable, Identifiable, Sendable {
@@ -124,8 +128,7 @@ enum PulseDuration: Double, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// Удержание маршрута: сверхтихая несущая, чтобы AirPlay- или Bluetooth-сессия
-/// не рвалась между импульсами.
+/// Непрерывная несущая, чтобы сессия не рвалась между импульсами.
 enum RouteHoldMode: String, CaseIterable, Identifiable, Sendable {
     case auto, always, never
 
@@ -156,6 +159,7 @@ final class AppSettings {
         static let duration = "pulseDuration"
         static let level = "pulseLevel"
         static let routeHold = "routeHoldMode"
+        static let adaptFrequency = "adaptFrequencyToRoute"
         static let autoStart = "autoStart"
         static let launchAtLogin = "launchAtLogin"
     }
@@ -166,7 +170,7 @@ final class AppSettings {
     var preset: TonePreset { didSet { defaults.set(preset.rawValue, forKey: Key.preset) } }
     var duration: PulseDuration { didSet { defaults.set(duration.rawValue, forKey: Key.duration) } }
 
-    /// Амплитуда сигнала, 0…1 линейно.
+    /// Амплитуда 0…1.
     var level: Double {
         didSet {
             level = min(max(level, 0.01), 1)
@@ -176,9 +180,11 @@ final class AppSettings {
 
     var routeHold: RouteHoldMode { didSet { defaults.set(routeHold.rawValue, forKey: Key.routeHold) } }
 
+    /// Не трогает выбор пользователя, влияет только на то, что играется.
+    var adaptFrequencyToRoute: Bool { didSet { defaults.set(adaptFrequencyToRoute, forKey: Key.adaptFrequency) } }
+
     var autoStart: Bool { didSet { defaults.set(autoStart, forKey: Key.autoStart) } }
 
-    /// Регистрация в автозапуске macOS. `onLoginItemError` вызывается при отказе системы.
     var launchAtLogin: Bool {
         didSet {
             guard launchAtLogin != oldValue else { return }
@@ -199,6 +205,7 @@ final class AppSettings {
         let storedLevel = defaults.double(forKey: Key.level)
         level = storedLevel > 0 ? min(storedLevel, 1) : 0.12
         routeHold = RouteHoldMode(rawValue: defaults.string(forKey: Key.routeHold) ?? "") ?? .auto
+        adaptFrequencyToRoute = defaults.object(forKey: Key.adaptFrequency) as? Bool ?? true
         autoStart = defaults.object(forKey: Key.autoStart) as? Bool ?? true
         launchAtLogin = SMAppService.mainApp.status == .enabled
     }

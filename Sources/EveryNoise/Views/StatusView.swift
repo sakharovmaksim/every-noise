@@ -29,7 +29,7 @@ struct StatusView: View {
 
             Section("Сигнал") {
                 LabeledContent("Частота") {
-                    ValueText(settings.preset.shortTitle)
+                    ValueText(frequencyText)
                 }
                 LabeledContent("Периодичность") {
                     ValueText(settings.interval.title)
@@ -55,10 +55,8 @@ struct StatusView: View {
                 LabeledContent("Удержание маршрута") {
                     ValueText(controller.isHoldingRoute ? "включено" : "выключено")
                 }
-                if let volume = controller.device?.volume {
-                    LabeledContent("Громкость системы") {
-                        ValueText(String(format: "%.0f %%", volume * 100))
-                    }
+                LabeledContent("Громкость системы") {
+                    ValueText(volumeText)
                 }
             }
 
@@ -80,7 +78,7 @@ struct StatusView: View {
         }
         .formStyle(.grouped)
         .task {
-            // Устройство вывода может смениться без участия приложения — подтягиваем состояние.
+            // Страховка на случай, если слушатель HAL что-то пропустил.
             while !Task.isCancelled {
                 model.controller.refreshDevice()
                 try? await Task.sleep(for: .seconds(5))
@@ -99,16 +97,33 @@ struct StatusView: View {
         }
         if let device = controller.device,
            device.transport.compressesAudio,
+           !model.settings.adaptFrequencyToRoute,
            model.settings.preset.frequency > device.transport.recommendedMaxFrequency {
-            return "\(device.transport.title) сжимает звук кодеком AAC и срезает всё выше ~18 кГц. Для этого подключения выберите пресет 17–18 кГц."
+            return "\(device.transport.title) сжимает звук кодеком AAC и срезает всё выше ~18 кГц. Выберите пресет 17–18 кГц или включите подстройку частоты в настройках."
         }
-        if let report = controller.lastReport, report.wasClamped {
+        if let report = controller.lastReport, report.wasClamped, !model.settings.adaptFrequencyToRoute {
             return "Тон снижен до \(Int(report.frequency)) Гц: устройство работает на \(Int(report.sampleRate)) Гц. Поднимите частоту дискретизации в «Настройке Audio-MIDI» или выберите пресет ниже."
         }
-        if let rate = controller.device?.sampleRate, rate > 0, rate < model.settings.preset.requiredSampleRate {
+        if let rate = controller.device?.sampleRate, rate > 0,
+           !model.settings.adaptFrequencyToRoute,
+           rate < model.settings.preset.requiredSampleRate {
             return "Для \(model.settings.preset.shortTitle) нужна частота дискретизации не ниже \(Int(model.settings.preset.requiredSampleRate)) Гц, а устройство работает на \(Int(rate)) Гц."
         }
         return nil
+    }
+
+    private var frequencyText: String {
+        let controller = model.controller
+        guard controller.isFrequencyAdapted else { return model.settings.preset.shortTitle }
+        let transport = controller.device?.transport.title ?? "маршрут"
+        return "\(controller.effectivePreset.shortTitle) · подстроено под \(transport)"
+    }
+
+    /// Внешние ЦАП часто не отдают громкость: сигнал идёт на 0 dBFS.
+    private var volumeText: String {
+        guard let device = model.controller.device else { return "—" }
+        guard let volume = device.volume else { return "не регулируется устройством" }
+        return String(format: "%.0f %%", volume * 100)
     }
 
     private var sampleRateText: String {

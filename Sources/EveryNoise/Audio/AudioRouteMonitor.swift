@@ -1,15 +1,9 @@
 import CoreAudio
 import Foundation
 
-/// Слушатель маршрута вывода: втыкание джека 3,5 мм, переключение на AirPlay,
-/// смена частоты дискретизации и громкости приходят сюда без опроса.
-///
-/// Отдельный монитор нужен потому, что `AVAudioEngineConfigurationChange` срабатывает
-/// не на всё: у встроенного звука динамики и джек — одно устройство с разными
-/// data source, и смена источника движок не трогает.
-///
-/// Класс живёт вне главного актора: HAL зовёт блоки на своей очереди, вся мутация
-/// состояния сериализована через `queue`, наружу события уходят уже на `MainActor`.
+/// Нужен отдельно от `AVAudioEngineConfigurationChange`: у встроенного звука динамики
+/// и джек — одно устройство с разными data source, и смену источника движок не видит.
+/// Живёт вне главного актора: HAL зовёт блоки на своей очереди.
 nonisolated final class AudioRouteMonitor: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.sakharovmaksim.every-noise.route", qos: .utility)
     private var deviceSubscriptions: [(device: AudioDeviceID, address: AudioObjectPropertyAddress, block: AudioObjectPropertyListenerBlock)] = []

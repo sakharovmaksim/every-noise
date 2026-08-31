@@ -30,7 +30,6 @@ struct LogEntry: Identifiable, Sendable, Equatable {
     let message: String
 }
 
-/// Журнал аудита: пишет в файл с ротацией и держит хвост записей для UI.
 @Observable
 final class AuditLog {
     private(set) var entries: [LogEntry] = []
@@ -73,7 +72,6 @@ final class AuditLog {
     func flush() { writer.flush() }
 }
 
-/// Файловая часть журнала: последовательная очередь + ротация по размеру.
 nonisolated final class LogFileWriter: @unchecked Sendable {
     let directoryURL: URL
     let fileURL: URL
@@ -84,7 +82,7 @@ nonisolated final class LogFileWriter: @unchecked Sendable {
     private var handle: FileHandle?
     private var currentSize: UInt64 = 0
 
-    /// Формат строки в файле; используется только внутри `queue`.
+    /// Используется только внутри `queue`.
     private let stamp: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
@@ -134,11 +132,10 @@ nonisolated final class LogFileWriter: @unchecked Sendable {
         }
     }
 
-    /// Читает хвост текущего файла и превращает его в записи для UI.
     func loadTail(limit: Int) -> [LogEntry] {
         queue.sync { [self] in
             guard let data = try? Data(contentsOf: fileURL) else { return [] }
-            // Декодируем с заменой: повреждённый байт не должен стоить всей истории.
+            // С заменой: повреждённый байт не должен стоить всей истории.
             let text = String(decoding: data, as: UTF8.self)
             let lines = text.split(separator: "\n", omittingEmptySubsequences: true).suffix(limit)
             return lines.compactMap { parse(String($0)) }
@@ -158,8 +155,7 @@ nonisolated final class LogFileWriter: @unchecked Sendable {
 
     private func openHandle() -> FileHandle? {
         if let handle { return handle }
-        // O_APPEND делает дозапись атомарной: если экземпляров приложения окажется
-        // два, строки не перемешаются посреди символа и файл останется валидным UTF-8.
+        // O_APPEND: две копии приложения не перемешают строки посреди символа.
         let descriptor = open(fileURL.path, O_WRONLY | O_APPEND | O_CREAT, 0o644)
         guard descriptor >= 0 else { return nil }
         handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
@@ -175,7 +171,6 @@ nonisolated final class LogFileWriter: @unchecked Sendable {
         guard currentSize + incoming > maxBytes else { return }
         closeHandle()
         let fm = FileManager.default
-        // every-noise.log.4 -> .5, ... , every-noise.log -> .1
         try? fm.removeItem(at: rotated(index: generations))
         for index in stride(from: generations - 1, through: 1, by: -1) {
             let source = rotated(index: index)

@@ -15,7 +15,6 @@ enum ToneEngineError: LocalizedError {
     }
 }
 
-/// Что реально ушло в звуковую карту при последнем импульсе.
 struct PulseReport: Sendable, Equatable {
     var requestedFrequency: Double
     var frequency: Double
@@ -26,16 +25,10 @@ struct PulseReport: Sendable, Equatable {
     var wasClamped: Bool { frequency < requestedFrequency - 0.5 }
 }
 
-/// Генератор неслышимого тона.
-///
-/// Два независимых узла:
-/// - `pulsePlayer` — импульсы по расписанию, буфер синуса с плавным фронтом и спадом;
-/// - `holdPlayer` — «удержание маршрута»: зацикленная несущая на −70 dBFS. Нужна для
-///   AirPlay и Bluetooth, где сессия рвётся на тишине и первые секунды импульса
-///   съедаются переподключением.
+/// Два узла: `pulsePlayer` — импульсы по расписанию, `holdPlayer` — непрерывная несущая
+/// для маршрутов, которые рвутся на тишине.
 final class ToneEngine {
-    /// Уровень несущей удержания: достаточно, чтобы поток не считался пустым,
-    /// и на 40 дБ ниже любого слышимого порога.
+    /// Поток не считается пустым, но на 40 дБ ниже порога слышимости.
     private static let holdLevel = 0.0003
 
     private let engine = AVAudioEngine()
@@ -47,7 +40,6 @@ final class ToneEngine {
     private var bufferKey: BufferKey?
     private var holdFrequency: Double?
 
-    /// Вызывается, когда система сменила устройство вывода или его формат.
     var onConfigurationChange: (() -> Void)?
 
     private struct BufferKey: Equatable {
@@ -178,14 +170,13 @@ final class ToneEngine {
         bufferKey = nil
         try? connect()
         if wasRunning { try? start() }
-        // Новый маршрут — новая несущая: формат и частота дискретизации могли смениться.
         if let heldFrequency { try? startRouteHold(frequency: heldFrequency) }
         onConfigurationChange?()
     }
 
     // MARK: - Буферы
 
-    /// Синус с косинусным фронтом и спадом — без щелчков на старте и в конце импульса.
+    /// Косинусные фронт и спад — иначе щелчок.
     private nonisolated static func makePulseBuffer(key: BufferKey, format: AVAudioFormat) -> AVAudioPCMBuffer? {
         let frameCount = AVAudioFrameCount(key.sampleRate * key.duration)
         guard frameCount > 0, let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return nil }
@@ -212,8 +203,7 @@ final class ToneEngine {
         return buffer
     }
 
-    /// Буфер для бесшовного зацикливания: длина подобрана под целое число периодов,
-    /// иначе на стыке цикла будет щелчок.
+    /// Длина под целое число периодов, иначе щелчок на стыке цикла.
     private nonisolated static func makeLoopBuffer(frequency: Double, level: Double, format: AVAudioFormat) -> AVAudioPCMBuffer? {
         guard frequency > 0 else { return nil }
         let cycles = max(1, (format.sampleRate / frequency).rounded())

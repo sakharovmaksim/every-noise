@@ -20,7 +20,7 @@ final class AppModel {
     init() {
         let log = AuditLog()
 
-        // Проверяем до создания аудиодвижка, чтобы вторая копия не успела ничего сыграть.
+        // До создания движка, чтобы вторая копия не успела ничего сыграть.
         if let existing = SingleInstance.alreadyRunning() {
             log.warning("Every Noise уже запущен (PID \(existing.processIdentifier)) — активирую его и выхожу")
             log.flush()
@@ -55,14 +55,13 @@ final class AppModel {
         }
     }
 
-    /// Показать главное окно: возвращаем иконку в Dock, чтобы работали меню и ⌘W.
+    /// Иконка в Dock нужна, чтобы работали меню и ⌘W.
     func showMainWindow(using openWindow: OpenWindowAction) {
         NSApp.setActivationPolicy(.regular)
         openWindow(id: Self.mainWindowID)
         NSApp.activate()
     }
 
-    /// Окно закрыли — снова живём только в строке меню.
     func mainWindowDidClose() {
         NSApp.setActivationPolicy(.accessory)
     }

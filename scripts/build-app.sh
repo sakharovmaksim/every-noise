@@ -33,6 +33,11 @@ if [[ -z "$VERSION" ]]; then
   VERSION="${VERSION:-0.1.0}"
 fi
 BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
+COMMIT="$(git rev-parse --short=8 HEAD 2>/dev/null || echo unknown)"
+# Без пометки правок сборку по хэшу не воспроизвести.
+if ! git diff --quiet HEAD 2>/dev/null; then COMMIT="$COMMIT-dirty"; fi
+TAG="$(git tag --points-at HEAD 2>/dev/null | head -1)"
+BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 SDK="$(xcrun --show-sdk-path)"
 SOURCES=()
@@ -81,9 +86,13 @@ if [[ ! -f Resources/AppIcon.icns ]]; then
 fi
 cp Resources/AppIcon.icns "$APP_DIR/Contents/Resources/AppIcon.icns"
 
-sed -e "s/__VERSION__/$VERSION/" \
-    -e "s/__BUILD__/$BUILD_NUMBER/" \
-    -e "s/__BUNDLE_ID__/$BUNDLE_ID/" \
+sed -e "s|__VERSION__|$VERSION|" \
+    -e "s|__BUILD__|$BUILD_NUMBER|" \
+    -e "s|__BUNDLE_ID__|$BUNDLE_ID|" \
+    -e "s|__COMMIT__|$COMMIT|" \
+    -e "s|__TAG__|$TAG|" \
+    -e "s|__BUILD_DATE__|$BUILD_DATE|" \
+    -e "s|__ARCHS__|${ARCHS[*]}|" \
     Resources/Info.plist > "$APP_DIR/Contents/Info.plist"
 printf 'APPL????' > "$APP_DIR/Contents/PkgInfo"
 

@@ -22,6 +22,14 @@
 	<string>__VERSION__</string>
 	<key>CFBundleVersion</key>
 	<string>__BUILD__</string>
+	<key>GitCommit</key>
+	<string>__COMMIT__</string>
+	<key>GitTag</key>
+	<string>__TAG__</string>
+	<key>BuildDate</key>
+	<string>__BUILD_DATE__</string>
+	<key>BuildArchitectures</key>
+	<string>__ARCHS__</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMultipleInstancesProhibited</key>

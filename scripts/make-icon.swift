@@ -1,4 +1,3 @@
-// Генератор иконки приложения: рисует AppIcon.icns без внешних зависимостей.
 // Запуск: xcrun swift scripts/make-icon.swift <путь к .icns>
 import AppKit
 import Foundation
@@ -14,7 +13,6 @@ func render(size: Int) -> Data {
     guard let context = NSGraphicsContext.current else { fatalError("нет графического контекста") }
     context.imageInterpolation = .high
 
-    // Скруглённый квадрат с отступом по гайдлайнам macOS.
     let inset = side * 0.09
     let rect = NSRect(x: inset, y: inset, width: side - inset * 2, height: side - inset * 2)
     let radius = rect.width * 0.225
@@ -31,7 +29,6 @@ func render(size: Int) -> Data {
     )
     gradient?.draw(in: plate, angle: -60)
 
-    // Волна: два периода синуса по центру.
     let wave = NSBezierPath()
     let amplitude = rect.height * 0.17
     let midY = rect.midY
