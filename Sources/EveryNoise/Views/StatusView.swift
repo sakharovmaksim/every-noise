@@ -4,12 +4,13 @@ struct StatusView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
+        let _ = Localization.shared.language
         let controller = model.controller
         let settings = model.settings
 
         Form {
             Section {
-                StatusHeader(status: controller.status, isRunning: controller.isRunning) {
+                StatusHeader(status: controller.status, isRunning: controller.isRunning, suspendedBy: controller.suspendedBy) {
                     controller.toggle()
                 }
                 .listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
@@ -27,56 +28,57 @@ struct StatusView: View {
                 }
             }
 
-            Section("Сигнал") {
-                LabeledContent("Частота") {
+            Section(L("Сигнал")) {
+                LabeledContent(L("Частота")) {
                     ValueText(frequencyText)
                 }
-                LabeledContent("Периодичность") {
+                LabeledContent(L("Периодичность")) {
                     ValueText(settings.interval.title)
                 }
-                LabeledContent("Длительность импульса") {
+                LabeledContent(L("Длительность импульса")) {
                     ValueText(settings.duration.title)
                 }
-                LabeledContent("Уровень") {
+                LabeledContent(L("Уровень")) {
                     ValueText(controller.levelText)
                 }
             }
 
-            Section("Вывод") {
-                LabeledContent("Устройство") {
-                    ValueText(controller.device?.name ?? "не определено")
+            Section(L("Вывод")) {
+                LabeledContent(L("Устройство")) {
+                    ValueText(controller.device?.name ?? L("не определено"))
                 }
-                LabeledContent("Подключение") {
+                LabeledContent(L("Подключение")) {
                     ValueText(controller.device?.transport.title ?? "—")
                 }
-                LabeledContent("Частота дискретизации") {
+                LabeledContent(L("Частота дискретизации")) {
                     ValueText(sampleRateText)
                 }
-                LabeledContent("Удержание маршрута") {
-                    ValueText(controller.isHoldingRoute ? "включено" : "выключено")
+                LabeledContent(L("Удержание маршрута")) {
+                    ValueText(controller.isHoldingRoute ? L("включено") : L("выключено"))
                 }
-                LabeledContent("Громкость системы") {
+                LabeledContent(L("Громкость системы")) {
                     ValueText(volumeText)
                 }
             }
 
-            Section("Расписание") {
-                LabeledContent("Последний импульс") {
+            Section(L("Расписание")) {
+                LabeledContent(L("Последний импульс")) {
                     TimelineView(.periodic(from: .now, by: 1)) { _ in
                         ValueText(lastPulseText)
                     }
                 }
-                LabeledContent("Следующий импульс") {
+                LabeledContent(L("Следующий импульс")) {
                     TimelineView(.periodic(from: .now, by: 1)) { _ in
                         ValueText(nextPulseText)
                     }
                 }
-                LabeledContent("Импульсов с запуска") {
+                LabeledContent(L("Импульсов с запуска")) {
                     ValueText("\(controller.pulseCount)")
                 }
             }
         }
         .formStyle(.grouped)
+        .id(Localization.shared.language)
         .task {
             // Страховка на случай, если слушатель HAL что-то пропустил.
             while !Task.isCancelled {
@@ -90,10 +92,10 @@ struct StatusView: View {
         let controller = model.controller
         if case .failed(let reason) = controller.status { return reason }
         if let device = controller.device, device.isSilenced {
-            return "Вывод «\(device.name)» замьючен или громкость на нуле — усилитель не увидит сигнал."
+            return L("Вывод «%@» замьючен или громкость на нуле — усилитель не увидит сигнал.", device.name)
         }
         if let device = controller.device, device.isAnalogAndQuiet {
-            return "Системная громкость \(Int((device.volume ?? 0) * 100)) %: на аналоговом выходе сигнал может не дотянуть до порога детектора усилителя."
+            return L("Системная громкость %d %%: на аналоговом выходе сигнал может не дотянуть до порога детектора усилителя.", Int((device.volume ?? 0) * 100))
         }
         if let device = controller.device,
            device.transport.compressesAudio,
@@ -102,12 +104,12 @@ struct StatusView: View {
             return "\(device.transport.title) сжимает звук кодеком AAC и срезает всё выше ~18 кГц. Выберите пресет 17–18 кГц или включите подстройку частоты в настройках."
         }
         if let report = controller.lastReport, report.wasClamped, !model.settings.adaptFrequencyToRoute {
-            return "Тон снижен до \(Int(report.frequency)) Гц: устройство работает на \(Int(report.sampleRate)) Гц. Поднимите частоту дискретизации в «Настройке Audio-MIDI» или выберите пресет ниже."
+            return L("Тон снижен до %d Гц: устройство работает на %d Гц. Поднимите частоту дискретизации в «Настройке Audio-MIDI» или выберите пресет ниже.", Int(report.frequency), Int(report.sampleRate))
         }
         if let rate = controller.device?.sampleRate, rate > 0,
            !model.settings.adaptFrequencyToRoute,
            rate < model.settings.preset.requiredSampleRate {
-            return "Для \(model.settings.preset.shortTitle) нужна частота дискретизации не ниже \(Int(model.settings.preset.requiredSampleRate)) Гц, а устройство работает на \(Int(rate)) Гц."
+            return L("Для %@ нужна частота дискретизации не ниже %d Гц, а устройство работает на %d Гц.", model.settings.preset.shortTitle, Int(model.settings.preset.requiredSampleRate), Int(rate))
         }
         return nil
     }
@@ -115,38 +117,40 @@ struct StatusView: View {
     private var frequencyText: String {
         let controller = model.controller
         guard controller.isFrequencyAdapted else { return model.settings.preset.shortTitle }
-        let transport = controller.device?.transport.title ?? "маршрут"
-        return "\(controller.effectivePreset.shortTitle) · подстроено под \(transport)"
+        let transport = controller.device?.transport.title ?? L("маршрут")
+        return L("%@ · подстроено под %@", controller.effectivePreset.shortTitle, transport)
     }
 
     /// Внешние ЦАП часто не отдают громкость: сигнал идёт на 0 dBFS.
     private var volumeText: String {
         guard let device = model.controller.device else { return "—" }
-        guard let volume = device.volume else { return "не регулируется устройством" }
+        guard let volume = device.volume else { return L("не регулируется устройством") }
         return String(format: "%.0f %%", volume * 100)
     }
 
     private var sampleRateText: String {
         guard let rate = model.controller.device?.sampleRate, rate > 0 else { return "—" }
-        return String(format: "%.1f кГц", rate / 1000)
+        return String(format: L("%.1f кГц"), rate / 1000)
     }
 
     private var lastPulseText: String {
-        guard let date = model.controller.lastPulseDate else { return "ещё не было" }
+        guard let date = model.controller.lastPulseDate else { return L("ещё не было") }
         let seconds = Int(Date().timeIntervalSince(date))
-        return "\(date.formatted(date: .omitted, time: .standard)) · \(seconds) с назад"
+        return L("%@ · %d с назад", date.formatted(date: .omitted, time: .standard), seconds)
     }
 
     private var nextPulseText: String {
+        if let reason = model.controller.suspendedBy { return reason.nextPulseText }
         guard model.controller.isRunning, let date = model.controller.nextPulseDate else { return "—" }
         let remaining = max(0, Int(date.timeIntervalSinceNow.rounded()))
-        return remaining == 0 ? "сейчас" : "через \(remaining) с"
+        return remaining == 0 ? L("сейчас") : L("через %d с", remaining)
     }
 }
 
 private struct StatusHeader: View {
     let status: KeeperStatus
     let isRunning: Bool
+    let suspendedBy: SuspendReason?
     let toggle: () -> Void
 
     var body: some View {
@@ -169,7 +173,7 @@ private struct StatusHeader: View {
 
             Spacer(minLength: 12)
 
-            Button(isRunning ? "Остановить" : "Запустить", action: toggle)
+            Button(isRunning ? L("Остановить") : L("Запустить"), action: toggle)
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
         }
@@ -177,7 +181,8 @@ private struct StatusHeader: View {
     }
 
     private var symbol: String {
-        switch status {
+        if suspendedBy != nil { return "moon.circle.fill" }
+        return switch status {
         case .running: "waveform.circle.fill"
         case .stopped: "pause.circle.fill"
         case .failed: "exclamationmark.triangle.fill"
@@ -185,7 +190,8 @@ private struct StatusHeader: View {
     }
 
     private var tint: Color {
-        switch status {
+        if suspendedBy != nil { return .secondary }
+        return switch status {
         case .running: .green
         case .stopped: .secondary
         case .failed: .orange
@@ -193,9 +199,10 @@ private struct StatusHeader: View {
     }
 
     private var subtitle: String {
-        switch status {
-        case .running: "Усилитель получает неслышимый тон по расписанию"
-        case .stopped: "Импульсы не воспроизводятся, усилитель может уснуть"
+        if let suspendedBy { return suspendedBy.statusText }
+        return switch status {
+        case .running: L("Усилитель получает неслышимый тон по расписанию")
+        case .stopped: L("Импульсы не воспроизводятся, усилитель может уснуть")
         case .failed(let reason): reason
         }
     }

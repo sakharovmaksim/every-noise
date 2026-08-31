@@ -5,29 +5,30 @@ struct SettingsView: View {
 
     var body: some View {
         @Bindable var settings = model.settings
+        @Bindable var localization = Localization.shared
 
         Form {
             Section {
-                Picker("Периодичность", selection: $settings.interval) {
+                Picker(L("Периодичность"), selection: $settings.interval) {
                     ForEach(PulseInterval.allCases) { interval in
                         Text(interval.title).tag(interval)
                     }
                 }
-                Picker("Длительность импульса", selection: $settings.duration) {
+                Picker(L("Длительность импульса"), selection: $settings.duration) {
                     ForEach(PulseDuration.allCases) { duration in
                         Text(duration.title).tag(duration)
                     }
                 }
             } header: {
-                Text("Расписание")
+                Text(L("Расписание"))
             } footer: {
-                Text("Большинство усилителей засыпает через 10–20 минут тишины. Импульс раз в 30 секунд — с запасом; длиннее 1 секунды нужно, если детектор сигнала усилителя срабатывает медленно.")
+                Text(L("Большинство усилителей засыпает через 10–20 минут тишины. Импульс раз в 30 секунд — с запасом; длиннее 1 секунды нужно, если детектор сигнала усилителя срабатывает медленно."))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
             Section {
-                Picker("Частота", selection: $settings.preset) {
+                Picker(L("Частота"), selection: $settings.preset) {
                     ForEach(TonePreset.allCases) { preset in
                         Text(preset.title).tag(preset)
                     }
@@ -36,19 +37,25 @@ struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Spacer()
+                    Button(L("Протестировать импульс")) {
+                        model.controller.pulseNow()
+                    }
+                }
             } header: {
-                Text("Тон")
+                Text(L("Тон"))
             }
 
             Section {
                 VStack(alignment: .leading, spacing: 6) {
                     Slider(value: $settings.level, in: 0.01...1) {
-                        Text("Уровень")
+                        Text(L("Уровень"))
                     } minimumValueLabel: {
-                        Text("тихо")
+                        Text(L("тихо"))
                             .font(.caption)
                     } maximumValueLabel: {
-                        Text("громко")
+                        Text(L("громко"))
                             .font(.caption)
                     }
                     Text(String(format: "%.0f %% · %.0f dBFS", settings.level * 100, settings.levelDecibels))
@@ -57,35 +64,41 @@ struct SettingsView: View {
                         .monospacedDigit()
                 }
             } header: {
-                Text("Уровень сигнала")
+                Text(L("Уровень сигнала"))
             } footer: {
-                Text("Детектору усилителя обычно хватает нескольких милливольт. Начните с 10–15 %: этого достаточно, чтобы разбудить технику, и мало, чтобы нагружать твитеры. Поднимайте, если усилитель всё равно засыпает.")
+                Text(L("Детектору усилителя обычно хватает нескольких милливольт. Начните с 10–15 %: этого достаточно, чтобы разбудить технику, и мало, чтобы нагружать твитеры. Поднимайте, если усилитель всё равно засыпает."))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
             Section {
-                Picker("Удержание маршрута", selection: $settings.routeHold) {
+                Picker(L("Удержание маршрута"), selection: $settings.routeHold) {
                     ForEach(RouteHoldMode.allCases) { mode in
                         Text(mode.title).tag(mode)
                     }
                 }
-                Toggle("Подстраивать частоту под подключение", isOn: $settings.adaptFrequencyToRoute)
+                Toggle(L("Подстраивать частоту под подключение"), isOn: $settings.adaptFrequencyToRoute)
             } header: {
-                Text("Подключение усилителя")
+                Text(L("Подключение усилителя"))
             } footer: {
-                Text("AirPlay и Bluetooth разрывают сессию на тишине: усилитель успевает заснуть между импульсами, а начало следующего импульса съедается переподключением. В режиме удержания приложение непрерывно отдаёт ту же частоту на −70 dBFS — это на 40 дБ ниже порога слышимости и не нагружает твитеры, но маршрут остаётся живым. «Автоматически» включает удержание только для AirPlay, Bluetooth и составных устройств; для джека 3,5 мм и USB оно не нужно.\n\nПодстройка частоты нужна там же: кодек AAC режет всё выше ~18 кГц, поэтому на AirPlay и Bluetooth приложение играет 18 кГц вместо выбранных 19–22. Выбор в пикере «Частота» при этом не меняется — как только вернётесь на джек или USB, заиграет он.")
+                Text(L("AirPlay и Bluetooth разрывают сессию на тишине: усилитель успевает заснуть между импульсами, а начало следующего импульса съедается переподключением. В режиме удержания приложение непрерывно отдаёт ту же частоту на −70 dBFS — это на 40 дБ ниже порога слышимости и не нагружает твитеры, но маршрут остаётся живым. «Автоматически» включает удержание только для AirPlay, Bluetooth и составных устройств; для джека 3,5 мм и USB оно не нужно.\n\nПодстройка частоты нужна там же: кодек AAC режет всё выше ~18 кГц, поэтому на AirPlay и Bluetooth приложение играет 18 кГц вместо выбранных 19–22. Выбор в пикере «Частота» при этом не меняется — как только вернётесь на джек или USB, заиграет он."))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
             Section {
-                Toggle("Запускать импульсы при старте приложения", isOn: $settings.autoStart)
-                Toggle("Запускать Every Noise при входе в систему", isOn: $settings.launchAtLogin)
+                Picker(L("Язык"), selection: $localization.language) {
+                    ForEach(AppLanguage.allCases) { language in
+                        Text(language.title).tag(language)
+                    }
+                }
+                Toggle(L("Приостанавливать при простое Mac"), isOn: $settings.pauseWhenIdle)
+                Toggle(L("Запускать импульсы при старте приложения"), isOn: $settings.autoStart)
+                Toggle(L("Запускать Every Noise при входе в систему"), isOn: $settings.launchAtLogin)
             } header: {
-                Text("Приложение")
+                Text(L("Приложение"))
             } footer: {
-                Text("Автозапуск работает только для приложения, лежащего в /Applications.")
+                Text(L("Пока приложение играет, macOS считает, что идёт звук, и не даёт Mac уснуть по бездействию. Поэтому после 5 минут без действий пользователя импульсы останавливаются, а аудиотракт отпускается — Mac засыпает как обычно. При первом же движении мыши импульсы возобновляются. Выключайте, только если Mac и так не должен спать.\n\nАвтозапуск работает только для приложения, лежащего в /Applications."))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -93,6 +106,9 @@ struct SettingsView: View {
             BuildInfoSection()
         }
         .formStyle(.grouped)
+        // Pop-up-кнопки AppKit кешируют заголовок выбранного пункта, поэтому при смене
+        // языка пересоздаём форму целиком.
+        .id(localization.language)
     }
 }
 
@@ -102,31 +118,31 @@ private struct BuildInfoSection: View {
 
     var body: some View {
         Section {
-            LabeledContent("Версия") {
+            LabeledContent(L("Версия")) {
                 ValueText(info.versionText)
             }
             if let tag = info.tag {
-                LabeledContent("Тег") { ValueText(tag) }
+                LabeledContent(L("Тег")) { ValueText(tag) }
             }
             if let commit = info.commit {
-                LabeledContent("Коммит") { ValueText(commit) }
+                LabeledContent(L("Коммит")) { ValueText(commit) }
             }
             if let date = info.dateText {
-                LabeledContent("Собрано") { ValueText(date) }
+                LabeledContent(L("Собрано")) { ValueText(date) }
             }
             if let architectures = info.architectures {
-                LabeledContent("Архитектуры") { ValueText(architectures) }
+                LabeledContent(L("Архитектуры")) { ValueText(architectures) }
             }
             HStack {
                 Spacer()
-                Button(copied ? "Скопировано" : "Скопировать для отчёта") {
+                Button(copied ? L("Скопировано") : L("Скопировать для отчёта")) {
                     info.copyReport()
                     copied = true
                 }
                 .disabled(copied)
             }
         } header: {
-            Text("Сборка")
+            Text(L("Сборка"))
         }
         .textSelection(.enabled)
         .task(id: copied) {

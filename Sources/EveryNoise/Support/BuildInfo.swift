@@ -29,7 +29,7 @@ struct BuildInfo: Sendable {
         return trimmed
     }
 
-    var versionText: String { "\(version) (сборка \(build))" }
+    var versionText: String { L("%@ (сборка %@)", version, build) }
 
     var dateText: String? {
         date?.formatted(date: .abbreviated, time: .shortened)
@@ -37,10 +37,10 @@ struct BuildInfo: Sendable {
 
     var report: String {
         var lines = ["Every Noise \(versionText)"]
-        if let tag { lines.append("Тег: \(tag)") }
-        if let commit { lines.append("Коммит: \(commit)") }
-        if let dateText { lines.append("Собрано: \(dateText)") }
-        if let architectures { lines.append("Архитектуры: \(architectures)") }
+        if let tag { lines.append(L("Тег: %@", tag)) }
+        if let commit { lines.append(L("Коммит: %@", commit)) }
+        if let dateText { lines.append(L("Собрано: %@", dateText)) }
+        if let architectures { lines.append(L("Архитектуры: %@", architectures)) }
         lines.append("macOS: \(ProcessInfo.processInfo.operatingSystemVersionString)")
         return lines.joined(separator: "\n")
     }

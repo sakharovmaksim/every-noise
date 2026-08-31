@@ -8,9 +8,9 @@ enum ToneEngineError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noOutputDevice: "Не найдено активное устройство вывода звука"
-        case .engineFailed(let reason): "Аудиодвижок не запустился: \(reason)"
-        case .bufferFailed: "Не удалось подготовить буфер тона"
+        case .noOutputDevice: L("Не найдено активное устройство вывода звука")
+        case .engineFailed(let reason): L("Аудиодвижок не запустился: %@", reason)
+        case .bufferFailed: L("Не удалось подготовить буфер тона")
         }
     }
 }

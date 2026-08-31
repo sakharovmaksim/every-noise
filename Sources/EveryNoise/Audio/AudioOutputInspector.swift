@@ -13,13 +13,13 @@ enum OutputTransport: Equatable, Sendable {
 
     var title: String {
         switch self {
-        case .builtInSpeakers: "Встроенные динамики"
-        case .headphoneJack: "Разъём 3,5 мм"
+        case .builtInSpeakers: L("Встроенные динамики")
+        case .headphoneJack: L("Разъём 3,5 мм")
         case .airPlay: "AirPlay"
         case .bluetooth: "Bluetooth"
         case .usb: "USB"
         case .hdmi: "HDMI"
-        case .aggregate: "Составное устройство"
+        case .aggregate: L("Составное устройство")
         case .other(let name): name
         }
     }
@@ -74,7 +74,7 @@ enum AudioOutputInspector {
         guard let deviceID = defaultOutputDevice() else { return nil }
         return OutputDeviceInfo(
             deviceID: deviceID,
-            name: name(of: deviceID) ?? "Устройство вывода",
+            name: name(of: deviceID) ?? L("Устройство вывода"),
             transport: transport(of: deviceID),
             sampleRate: sampleRate(of: deviceID) ?? 0,
             volume: volume(of: deviceID),
@@ -120,7 +120,7 @@ enum AudioOutputInspector {
         var value = UInt32(0)
         var size = UInt32(MemoryLayout<UInt32>.size)
         guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &value) == noErr else {
-            return .other("Неизвестное подключение")
+            return .other(L("Неизвестное подключение"))
         }
 
         switch value {
@@ -139,7 +139,7 @@ enum AudioOutputInspector {
         case kAudioDeviceTransportTypeThunderbolt:
             return .other("Thunderbolt")
         default:
-            return .other("Внешнее устройство")
+            return .other(L("Внешнее устройство"))
         }
     }
 

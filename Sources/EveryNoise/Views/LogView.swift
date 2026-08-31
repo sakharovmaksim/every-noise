@@ -6,12 +6,17 @@ struct LogView: View {
     @State private var filter: LogLevel?
 
     var body: some View {
+        let _ = Localization.shared.language
+        @Bindable var log = model.log
+
         VStack(spacing: 0) {
             if entries.isEmpty {
                 ContentUnavailableView(
-                    "Записей нет",
+                    L("Записей нет"),
                     systemImage: "list.bullet.rectangle",
-                    description: Text("События появятся, как только приложение начнёт воспроизводить импульсы.")
+                    description: Text(model.log.isEnabled
+                        ? L("События появятся, как только приложение начнёт воспроизводить импульсы.")
+                        : L("Запись журнала выключена."))
                 )
             } else {
                 List(entries) { entry in
@@ -22,13 +27,24 @@ struct LogView: View {
                 .alternatingRowBackgrounds()
             }
         }
+        .safeAreaInset(edge: .top) {
+            if !model.log.isEnabled {
+                Label(L("Запись выключена — новые события не сохраняются"), systemImage: "pause.circle")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(.bar)
+            }
+        }
         .safeAreaInset(edge: .bottom) {
             footer
         }
         .toolbar {
             ToolbarItem(placement: .automatic) {
-                Picker("Уровень", selection: $filter) {
-                    Text("Все").tag(LogLevel?.none)
+                Picker(L("Уровень"), selection: $filter) {
+                    Text(L("Все")).tag(LogLevel?.none)
                     ForEach(LogLevel.allCases, id: \.self) { level in
                         Text(level.title).tag(LogLevel?.some(level))
                     }
@@ -45,7 +61,13 @@ struct LogView: View {
     }
 
     private var footer: some View {
-        HStack(spacing: 12) {
+        @Bindable var log = model.log
+
+        return HStack(spacing: 12) {
+            Toggle(L("Запись"), isOn: $log.isEnabled)
+                .help(L("Записывать события в журнал и в файл"))
+                .fixedSize()
+
             Text(model.log.fileURL.path(percentEncoded: false))
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -55,10 +77,10 @@ struct LogView: View {
 
             Spacer(minLength: 8)
 
-            Button("Показать в Finder") {
+            Button(L("Показать в Finder")) {
                 NSWorkspace.shared.activateFileViewerSelecting([model.log.fileURL])
             }
-            Button("Очистить") {
+            Button(L("Очистить")) {
                 model.log.clear()
             }
         }

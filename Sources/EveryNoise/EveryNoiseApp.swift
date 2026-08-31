@@ -17,19 +17,20 @@ struct EveryNoiseApp: App {
         }
 
         MenuBarExtra {
+            let _ = Localization.shared.language
             MenuBarContent()
                 .environment(model)
         } label: {
             switch model.controller.status {
             case .running:
                 Image(nsImage: MenuBarIcon.wave(active: true))
-                    .accessibilityLabel("Every Noise — работает")
+                    .accessibilityLabel(L("Every Noise — работает"))
             case .stopped:
                 Image(nsImage: MenuBarIcon.wave(active: false))
-                    .accessibilityLabel("Every Noise — остановлено")
+                    .accessibilityLabel(L("Every Noise — остановлено"))
             case .failed:
                 Image(systemName: "exclamationmark.triangle")
-                    .accessibilityLabel("Every Noise — ошибка")
+                    .accessibilityLabel(L("Every Noise — ошибка"))
             }
         }
     }

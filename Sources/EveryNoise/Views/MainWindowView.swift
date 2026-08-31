@@ -9,14 +9,15 @@ struct MainWindowView: View {
     @State private var section: Section = .status
 
     var body: some View {
+        let _ = Localization.shared.language
         TabView(selection: $section) {
-            Tab("Статус", systemImage: "waveform", value: Section.status) {
+            Tab(L("Статус"), systemImage: "waveform", value: Section.status) {
                 StatusView()
             }
-            Tab("Настройки", systemImage: "slider.horizontal.3", value: Section.settings) {
+            Tab(L("Настройки"), systemImage: "slider.horizontal.3", value: Section.settings) {
                 SettingsView()
             }
-            Tab("Журнал", systemImage: "list.bullet.rectangle", value: Section.log) {
+            Tab(L("Журнал"), systemImage: "list.bullet.rectangle", value: Section.log) {
                 LogView()
             }
         }

@@ -11,10 +11,10 @@ nonisolated final class AudioRouteMonitor: @unchecked Sendable {
     private var handler: (@Sendable (String) -> Void)?
 
     private static let deviceProperties: [(AudioObjectPropertySelector, String)] = [
-        (kAudioDevicePropertyDataSource, "источник вывода"),
-        (kAudioDevicePropertyNominalSampleRate, "частота дискретизации"),
-        (kAudioDevicePropertyMute, "мьют"),
-        (kAudioDevicePropertyVolumeScalar, "громкость"),
+        (kAudioDevicePropertyDataSource, L("источник вывода")),
+        (kAudioDevicePropertyNominalSampleRate, L("частота дискретизации")),
+        (kAudioDevicePropertyMute, L("мьют")),
+        (kAudioDevicePropertyVolumeScalar, L("громкость")),
     ]
 
     func start(onChange: @escaping @Sendable (String) -> Void) {
@@ -29,7 +29,7 @@ nonisolated final class AudioRouteMonitor: @unchecked Sendable {
                 guard let self else { return }
                 queue.async {
                     self.subscribeToDevice()
-                    self.handler?("устройство вывода")
+                    self.handler?(L("устройство вывода"))
                 }
             }
             if AudioObjectAddPropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &address, queue, block) == noErr {

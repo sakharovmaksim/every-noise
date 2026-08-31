@@ -1,6 +1,34 @@
 import AppKit
+import CoreGraphics
 import Foundation
 import Observation
+
+/// Почему импульсы стоят на паузе, хотя приложение запущено.
+enum SuspendReason: Equatable, Sendable {
+    case idle
+    case systemSleep
+
+    var statusText: String {
+        switch self {
+        case .idle: L("За маком никого — пауза, чтобы он мог уснуть. Вернётесь — импульсы продолжатся")
+        case .systemSleep: L("Mac спит — импульсы остановлены, продолжатся после пробуждения")
+        }
+    }
+
+    var shortText: String {
+        switch self {
+        case .idle: L("Пауза: Mac простаивает")
+        case .systemSleep: L("Пауза: Mac спит")
+        }
+    }
+
+    var nextPulseText: String {
+        switch self {
+        case .idle: L("после возвращения к Mac")
+        case .systemSleep: L("после пробуждения Mac")
+        }
+    }
+}
 
 enum KeeperStatus: Equatable, Sendable {
     case stopped
@@ -9,9 +37,9 @@ enum KeeperStatus: Equatable, Sendable {
 
     var title: String {
         switch self {
-        case .stopped: "Остановлено"
-        case .running: "Работает"
-        case .failed: "Ошибка"
+        case .stopped: L("Остановлено")
+        case .running: L("Работает")
+        case .failed: L("Ошибка")
         }
     }
 }
@@ -25,8 +53,10 @@ final class KeepAwakeController {
     private(set) var lastReport: PulseReport?
     private(set) var device: OutputDeviceInfo?
     private(set) var isHoldingRoute = false
+    private(set) var suspendedBy: SuspendReason?
 
     var isRunning: Bool { status == .running }
+    var isSuspended: Bool { suspendedBy != nil }
 
     /// Минимум из ограничения кодека и 0,45 × частоты дискретизации.
     var routeFrequencyCeiling: Double {
@@ -56,6 +86,12 @@ final class KeepAwakeController {
     @ObservationIgnored private let engine = ToneEngine()
     @ObservationIgnored private let routeMonitor = AudioRouteMonitor()
     @ObservationIgnored private var loop: Task<Void, Never>?
+    @ObservationIgnored private var idleWatcher: Task<Void, Never>?
+    @ObservationIgnored private var manualPulseCleanup: Task<Void, Never>?
+
+    /// Через столько бездействия пользователя отпускаем аудиотракт, чтобы мак мог уснуть.
+    private static let idleThreshold: TimeInterval = 300
+    private static let idleCheckInterval: TimeInterval = 20
     @ObservationIgnored private var activity: NSObjectProtocol?
 
     /// Без громкости: иначе журнал засорится при каждом нажатии клавиши.
@@ -73,7 +109,7 @@ final class KeepAwakeController {
         self.settings = settings
         self.log = log
         engine.onConfigurationChange = { [weak self] in
-            self?.handleRouteChange(source: "аудиотракт пересобран")
+            self?.handleRouteChange(source: L("аудиотракт пересобран"))
         }
         routeMonitor.start { [weak self] property in
             Task { @MainActor in self?.handleRouteChange(source: property) }
@@ -83,7 +119,7 @@ final class KeepAwakeController {
         refreshDevice()
         routeSignature = makeSignature()
         if let device {
-            log.info("Текущий вывод: \(device.summary), \(Int(device.sampleRate)) Гц")
+            log.info(L("Текущий вывод: %@, %d Гц", device.summary, Int(device.sampleRate)))
         }
     }
 
@@ -96,30 +132,34 @@ final class KeepAwakeController {
         } catch {
             let text = error.localizedDescription
             status = .failed(text)
-            log.error("Не удалось запустить аудиодвижок: \(text)")
+            log.error(L("Не удалось запустить аудиодвижок: %@", text))
             return
         }
         status = .running
         beginActivity()
         refreshDevice()
-        log.info("Запуск: \(settings.preset.shortTitle), импульс \(settings.duration.title), \(settings.interval.title.lowercased()), уровень \(levelText)")
+        log.info(L("Запуск: %@, импульс %@, %@, уровень %@", settings.preset.shortTitle, settings.duration.title, settings.interval.title.lowercased(), levelText))
         syncFrequencyToRoute()
         applyRouteHold()
         warnAboutTransportIfNeeded()
         nextPulseDate = Date()
         runLoop()
+        watchIdle()
     }
 
-    func stop(reason: String = "по команде пользователя") {
+    func stop(reason: String = L("по команде пользователя")) {
         guard isRunning else { return }
         loop?.cancel()
         loop = nil
+        idleWatcher?.cancel()
+        idleWatcher = nil
+        suspendedBy = nil
         engine.stop()
         isHoldingRoute = false
         endActivity()
         nextPulseDate = nil
         status = .stopped
-        log.info("Остановлено \(reason)")
+        log.info(L("Остановлено %@", reason))
     }
 
     func toggle() {
@@ -127,8 +167,19 @@ final class KeepAwakeController {
     }
 
     /// Не сдвигает расписание.
+    /// Работает и на паузе: тогда аудиотракт освобождается сразу после импульса,
+    /// чтобы не мешать маку засыпать.
     func pulseNow() {
+        let releaseAfterwards = !isRunning || isSuspended
         emit(scheduled: false)
+        guard releaseAfterwards else { return }
+        manualPulseCleanup?.cancel()
+        manualPulseCleanup = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(for: .seconds(settings.duration.seconds + 0.5))
+            guard !Task.isCancelled, !isRunning || isSuspended else { return }
+            engine.stop()
+        }
     }
 
     // MARK: - Цикл
@@ -164,14 +215,14 @@ final class KeepAwakeController {
             pulseCount += 1
             refreshDevice()
 
-            let kind = scheduled ? "Импульс" : "Импульс вручную"
-            var line = "\(kind) №\(pulseCount): \(format(hz: report.frequency)), \(settings.duration.title), уровень \(levelText)"
-            line += ", вывод \(device?.summary ?? "неизвестно") @ \(Int(report.sampleRate)) Гц"
-            if isHoldingRoute { line += ", удержание маршрута включено" }
+            let kind = scheduled ? L("Импульс") : L("Импульс вручную")
+            var line = L("%@ №%d: %@, %@, уровень %@", kind, pulseCount, format(hz: report.frequency), settings.duration.title, levelText)
+            line += L(", вывод %@ @ %d Гц", device?.summary ?? L("неизвестно"), Int(report.sampleRate))
+            if isHoldingRoute { line += L(", удержание маршрута включено") }
             log.info(line)
 
             if report.wasClamped {
-                let notice = "Частота \(format(hz: report.requestedFrequency)) недоступна на \(Int(report.sampleRate)) Гц и снижена до \(format(hz: report.frequency)). Поднимите частоту дискретизации в «Настройке Audio-MIDI» или включите подстройку частоты."
+                let notice = L("Частота %@ недоступна на %d Гц и снижена до %@. Поднимите частоту дискретизации в «Настройке Audio-MIDI» или включите подстройку частоты.", format(hz: report.requestedFrequency), Int(report.sampleRate), format(hz: report.frequency))
                 if lastClampNotice != notice {
                     log.warning(notice)
                     lastClampNotice = notice
@@ -180,17 +231,79 @@ final class KeepAwakeController {
                 lastClampNotice = nil
             }
             if let device, device.isSilenced {
-                log.warning("Вывод \(device.name) замьючен или громкость на нуле — усилитель сигнал не увидит.")
+                log.warning(L("Вывод %@ замьючен или громкость на нуле — усилитель сигнал не увидит.", device.name))
             }
             if let device, device.isAnalogAndQuiet {
-                log.warning("Системная громкость \(Int((device.volume ?? 0) * 100)) %: на аналоговом выходе сигнал может не дотянуть до порога детектора усилителя.")
+                log.warning(L("Системная громкость %d %%: на аналоговом выходе сигнал может не дотянуть до порога детектора усилителя.", Int((device.volume ?? 0) * 100)))
             }
             if status != .running && scheduled { status = .running }
         } catch {
             let text = error.localizedDescription
             status = .failed(text)
-            log.error("Импульс не воспроизведён: \(text)")
+            log.error(L("Импульс не воспроизведён: %@", text))
         }
+    }
+
+    // MARK: - Простой пользователя
+
+    /// Работающий аудиодвижок держит PreventUserIdleSystemSleep, поэтому на время простоя
+    /// тракт отпускаем: пока мака нет рядом, будить усилитель всё равно не для чего.
+    private func watchIdle() {
+        idleWatcher?.cancel()
+        idleWatcher = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(Self.idleCheckInterval))
+                guard let self, !Task.isCancelled else { return }
+                checkIdle()
+            }
+        }
+    }
+
+    private var userIdleSeconds: TimeInterval {
+        CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: CGEventType(rawValue: ~0)!)
+    }
+
+    private func checkIdle() {
+        guard isRunning, settings.pauseWhenIdle else {
+            if suspendedBy == .idle { resume(logging: L("Пауза по простою выключена — импульсы возобновлены")) }
+            return
+        }
+        guard suspendedBy != .systemSleep else { return }
+        if suspendedBy == nil, userIdleSeconds >= Self.idleThreshold {
+            suspend(.idle, logging: L("Пауза: за маком %d минут никого — аудиотракт отпущен, чтобы Mac мог уснуть", Int(Self.idleThreshold / 60)))
+        } else if suspendedBy == .idle, userIdleSeconds < Self.idleThreshold {
+            resume(logging: L("Пользователь вернулся — импульсы возобновлены"))
+        }
+    }
+
+    private func suspend(_ reason: SuspendReason, logging message: String) {
+        suspendedBy = reason
+        loop?.cancel()
+        loop = nil
+        nextPulseDate = nil
+        engine.stop()
+        isHoldingRoute = false
+        endActivity()
+        log.info(message)
+    }
+
+    private func resume(logging message: String) {
+        guard isSuspended else { return }
+        suspendedBy = nil
+        do {
+            try engine.start()
+        } catch {
+            status = .failed(error.localizedDescription)
+            log.error(L("Аудиодвижок не стартовал: %@", error.localizedDescription))
+            return
+        }
+        beginActivity()
+        refreshDevice()
+        syncFrequencyToRoute()
+        applyRouteHold()
+        log.info(message)
+        nextPulseDate = Date()
+        runLoop()
     }
 
     // MARK: - Маршрут вывода
@@ -202,14 +315,14 @@ final class KeepAwakeController {
             do {
                 try engine.startRouteHold(frequency: effectivePreset.frequency)
                 isHoldingRoute = true
-                log.info("Удержание маршрута включено: непрерывная несущая \(effectivePreset.shortTitle) на −70 dBFS (\(device?.transport.title ?? "маршрут"))")
+                log.info(L("Удержание маршрута включено: непрерывная несущая %@ на −70 dBFS (%@)", effectivePreset.shortTitle, device?.transport.title ?? L("маршрут")))
             } catch {
-                log.error("Не удалось включить удержание маршрута: \(error.localizedDescription)")
+                log.error(L("Не удалось включить удержание маршрута: %@", error.localizedDescription))
             }
         } else {
             engine.stopRouteHold()
             isHoldingRoute = false
-            log.info("Удержание маршрута выключено")
+            log.info(L("Удержание маршрута выключено"))
         }
     }
 
@@ -219,9 +332,9 @@ final class KeepAwakeController {
         guard appliedPreset != preset else { return }
 
         if isFrequencyAdapted {
-            log.info("\(adaptationReason): частота снижена с \(settings.preset.shortTitle) до \(preset.shortTitle). Выбор в настройках не изменён.")
+            log.info(L("%@: частота снижена с %@ до %@. Выбор в настройках не изменён.", adaptationReason, settings.preset.shortTitle, preset.shortTitle))
         } else if appliedPreset != nil {
-            log.info("Возврат к выбранной частоте \(preset.shortTitle)")
+            log.info(L("Возврат к выбранной частоте %@", preset.shortTitle))
         }
 
         // Несущая играет на той же частоте — пересобираем.
@@ -232,11 +345,11 @@ final class KeepAwakeController {
     }
 
     private var adaptationReason: String {
-        guard let device else { return "Маршрут" }
+        guard let device else { return L("Маршрут") }
         if device.transport.compressesAudio, settings.preset.frequency > device.transport.recommendedMaxFrequency {
-            return "\(device.transport.title) сжимает звук кодеком AAC и режет всё выше ~18 кГц"
+            return L("%@ сжимает звук кодеком AAC и режет всё выше ~18 кГц", device.transport.title)
         }
-        return "\(device.summary) работает на \(Int(device.sampleRate)) Гц"
+        return L("%@ работает на %d Гц", device.summary, Int(device.sampleRate))
     }
 
     private func warnAboutTransportIfNeeded() {
@@ -244,10 +357,10 @@ final class KeepAwakeController {
         if device.transport.compressesAudio,
            !settings.adaptFrequencyToRoute,
            settings.preset.frequency > device.transport.recommendedMaxFrequency {
-            log.warning("\(device.transport.title) сжимает звук кодеком AAC и срезает всё выше ~18 кГц: тон \(settings.preset.shortTitle) до усилителя, скорее всего, не дойдёт. Выберите 17–18 кГц или включите подстройку частоты.")
+            log.warning(L("%@ сжимает звук кодеком AAC и срезает всё выше ~18 кГц: тон %@ до усилителя, скорее всего, не дойдёт. Выберите 17–18 кГц или включите подстройку частоты.", device.transport.title, settings.preset.shortTitle))
         }
         if device.transport == .airPlay {
-            log.info("AirPlay работает на 44,1 кГц и добавляет задержку около 2 секунд — импульс короче 1 секунды может не дойти целиком.")
+            log.info(L("AirPlay работает на 44,1 кГц и добавляет задержку около 2 секунд — импульс короче 1 секунды может не дойти целиком."))
         }
     }
 
@@ -257,9 +370,9 @@ final class KeepAwakeController {
         guard signature != routeSignature else { return }
         routeSignature = signature
         if let device {
-            log.info("Маршрут изменился (\(source)): \(device.summary), \(Int(device.sampleRate)) Гц")
+            log.info(L("Маршрут изменился (%@): %@, %d Гц", source, device.summary, Int(device.sampleRate)))
         } else {
-            log.warning("Маршрут изменился (\(source)): активного устройства вывода нет")
+            log.warning(L("Маршрут изменился (%@): активного устройства вывода нет", source))
         }
         syncFrequencyToRoute()
         applyRouteHold()
@@ -291,6 +404,7 @@ final class KeepAwakeController {
             _ = settings.level
             _ = settings.routeHold
             _ = settings.adaptFrequencyToRoute
+            _ = settings.pauseWhenIdle
         } onChange: { [weak self] in
             Task { @MainActor in
                 self?.settingsDidChange()
@@ -300,7 +414,10 @@ final class KeepAwakeController {
     }
 
     private func settingsDidChange() {
-        log.info("Настройки изменены: \(settings.preset.shortTitle), \(settings.interval.title.lowercased()), импульс \(settings.duration.title), уровень \(levelText)")
+        if !settings.pauseWhenIdle, suspendedBy == .idle {
+            resume(logging: L("Пауза по простою выключена — импульсы возобновлены"))
+        }
+        log.info(L("Настройки изменены: %@, %@, импульс %@, уровень %@", settings.preset.shortTitle, settings.interval.title.lowercased(), settings.duration.title, levelText))
         guard isRunning else { return }
         if isHoldingRoute {
             engine.stopRouteHold()
@@ -318,27 +435,40 @@ final class KeepAwakeController {
     private func observeSystemPower() {
         let center = NSWorkspace.shared.notificationCenter
         center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor in self?.log.info("Mac уходит в сон — импульсы приостановлены") }
+            Task { @MainActor in self?.handleWillSleep() }
         }
         center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.handleWake() }
         }
     }
 
-    private func handleWake() {
-        log.info("Mac проснулся")
+    /// Отпускаем аудиоустройство до засыпания: иначе движок уходит в сон вместе с системой
+    /// и после пробуждения может остаться в нерабочем состоянии.
+    private func handleWillSleep() {
         guard isRunning else { return }
-        do {
-            try engine.start()
-            refreshDevice()
-            isHoldingRoute = false
-            syncFrequencyToRoute()
-            applyRouteHold()
-            nextPulseDate = Date()
-            runLoop()
-        } catch {
-            status = .failed(error.localizedDescription)
-            log.error("После пробуждения аудиодвижок не стартовал: \(error.localizedDescription)")
+        if suspendedBy == .idle {
+            suspendedBy = .systemSleep
+            log.info(L("Mac уходит в сон"))
+            return
+        }
+        suspend(.systemSleep, logging: L("Mac уходит в сон — импульсы остановлены, аудиотракт отпущен"))
+    }
+
+    private func handleWake() {
+        guard isRunning else {
+            log.info(L("Mac проснулся"))
+            return
+        }
+        // Тёмное пробуждение: система встала сама, пользователя за маком нет.
+        if settings.pauseWhenIdle, userIdleSeconds >= Self.idleThreshold {
+            suspendedBy = .idle
+            log.info(L("Mac проснулся, но за ним никого — импульсы остаются на паузе"))
+            return
+        }
+        if isSuspended {
+            resume(logging: L("Mac проснулся — импульсы возобновлены"))
+        } else {
+            resume(logging: L("Mac проснулся"))
         }
     }
 
@@ -348,7 +478,7 @@ final class KeepAwakeController {
         guard activity == nil else { return }
         activity = ProcessInfo.processInfo.beginActivity(
             options: [.userInitiatedAllowingIdleSystemSleep],
-            reason: "Периодическое воспроизведение неслышимого тона"
+            reason: L("Периодическое воспроизведение неслышимого тона")
         )
     }
 
@@ -366,6 +496,6 @@ final class KeepAwakeController {
     }
 
     private func format(hz: Double) -> String {
-        hz >= 1000 ? String(format: "%.1f кГц", hz / 1000) : String(format: "%.0f Гц", hz)
+        hz >= 1000 ? String(format: L("%.1f кГц"), hz / 1000) : String(format: L("%.0f Гц"), hz)
     }
 }

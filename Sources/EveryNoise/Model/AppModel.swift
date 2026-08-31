@@ -22,7 +22,7 @@ final class AppModel {
 
         // До создания движка, чтобы вторая копия не успела ничего сыграть.
         if let existing = SingleInstance.alreadyRunning() {
-            log.warning("Every Noise уже запущен (PID \(existing.processIdentifier)) — активирую его и выхожу")
+            log.warning(L("Every Noise уже запущен (PID %d) — активирую его и выхожу", existing.processIdentifier))
             log.flush()
             existing.activate(options: [.activateAllWindows])
             exit(0)
@@ -34,14 +34,14 @@ final class AppModel {
         self.controller = KeepAwakeController(settings: settings, log: log)
 
         settings.onLoginItemError = { [weak log] message in
-            log?.error("Автозапуск не настроен: \(message)")
+            log?.error(L("Автозапуск не настроен: %@", message))
         }
 
-        log.info("Every Noise запущен (\(version))")
+        log.info(L("Every Noise запущен (%@)", version))
         if settings.autoStart {
             controller.start()
         } else {
-            log.info("Автостарт выключен — ожидание команды пользователя")
+            log.info(L("Автостарт выключен — ожидание команды пользователя"))
         }
 
         NotificationCenter.default.addObserver(
@@ -74,8 +74,8 @@ final class AppModel {
     private func prepareForTermination() {
         guard !isTerminating else { return }
         isTerminating = true
-        controller.stop(reason: "перед выходом из приложения")
-        log.info("Every Noise завершает работу")
+        controller.stop(reason: L("перед выходом из приложения"))
+        log.info(L("Every Noise завершает работу"))
         log.flush()
     }
 }

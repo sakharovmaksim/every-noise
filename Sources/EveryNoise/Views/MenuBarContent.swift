@@ -5,23 +5,23 @@ struct MenuBarContent: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
+        let _ = Localization.shared.language
         @Bindable var settings = model.settings
         let controller = model.controller
 
         Section(statusLine) {
-            Button(controller.isRunning ? "Приостановить" : "Запустить") {
+            Button(controller.isRunning ? L("Приостановить") : L("Запустить")) {
                 controller.toggle()
             }
-            Button("Воспроизвести сейчас") {
+            Button(L("Воспроизвести сейчас")) {
                 controller.pulseNow()
             }
-            .disabled(!controller.isRunning)
         }
 
         Divider()
 
-        Menu("Частота") {
-            Picker("Частота", selection: $settings.preset) {
+        Menu(L("Частота")) {
+            Picker(L("Частота"), selection: $settings.preset) {
                 ForEach(TonePreset.allCases) { preset in
                     Text(preset.title).tag(preset)
                 }
@@ -30,8 +30,8 @@ struct MenuBarContent: View {
             .labelsHidden()
         }
 
-        Menu("Периодичность") {
-            Picker("Периодичность", selection: $settings.interval) {
+        Menu(L("Периодичность")) {
+            Picker(L("Периодичность"), selection: $settings.interval) {
                 ForEach(PulseInterval.allCases) { interval in
                     Text(interval.title).tag(interval)
                 }
@@ -42,12 +42,12 @@ struct MenuBarContent: View {
 
         Divider()
 
-        Button("Открыть Every Noise") {
+        Button(L("Открыть Every Noise")) {
             model.showMainWindow(using: openWindow)
         }
         .keyboardShortcut("o")
 
-        Button("Выйти") {
+        Button(L("Выйти")) {
             model.quit()
         }
         .keyboardShortcut("q")
@@ -57,11 +57,12 @@ struct MenuBarContent: View {
         let controller = model.controller
         switch controller.status {
         case .running:
+            if let reason = controller.suspendedBy { return reason.shortText }
             return "\(model.settings.preset.shortTitle) · \(model.settings.interval.shortTitle)"
         case .stopped:
-            return "Остановлено"
+            return L("Остановлено")
         case .failed(let reason):
-            return "Ошибка: \(reason)"
+            return L("Ошибка: %@", reason)
         }
     }
 }

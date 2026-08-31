@@ -11,31 +11,31 @@ enum PulseInterval: Int, CaseIterable, Identifiable, Sendable {
 
     var shortTitle: String {
         switch self {
-        case .s15: "15 с"
-        case .s30: "30 с"
-        case .m1: "1 мин"
-        case .m2: "2 мин"
-        case .m3: "3 мин"
-        case .m5: "5 мин"
-        case .m10: "10 мин"
-        case .m15: "15 мин"
-        case .m30: "30 мин"
-        case .h1: "1 час"
+        case .s15: L("15 с")
+        case .s30: L("30 с")
+        case .m1: L("1 мин")
+        case .m2: L("2 мин")
+        case .m3: L("3 мин")
+        case .m5: L("5 мин")
+        case .m10: L("10 мин")
+        case .m15: L("15 мин")
+        case .m30: L("30 мин")
+        case .h1: L("1 час")
         }
     }
 
     var title: String {
         switch self {
-        case .s15: "Каждые 15 секунд"
-        case .s30: "Каждые 30 секунд"
-        case .m1: "Каждую минуту"
-        case .m2: "Каждые 2 минуты"
-        case .m3: "Каждые 3 минуты"
-        case .m5: "Каждые 5 минут"
-        case .m10: "Каждые 10 минут"
-        case .m15: "Каждые 15 минут"
-        case .m30: "Каждые 30 минут"
-        case .h1: "Каждый час"
+        case .s15: L("Каждые 15 секунд")
+        case .s30: L("Каждые 30 секунд")
+        case .m1: L("Каждую минуту")
+        case .m2: L("Каждые 2 минуты")
+        case .m3: L("Каждые 3 минуты")
+        case .m5: L("Каждые 5 минут")
+        case .m10: L("Каждые 10 минут")
+        case .m15: L("Каждые 15 минут")
+        case .m30: L("Каждые 30 минут")
+        case .h1: L("Каждый час")
         }
     }
 }
@@ -60,44 +60,44 @@ enum TonePreset: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .infra10: "Ниже слуха · 10 Гц"
-        case .sub20: "Ниже слуха · 20 Гц"
-        case .khz17: "17 кГц · слышат подростки"
-        case .khz18: "18 кГц · для AirPlay и Bluetooth"
-        case .khz19: "19 кГц · запасной вариант"
-        case .khz20: "20 кГц · рекомендуется"
-        case .khz22: "22 кГц · нужен выход ≥ 48 кГц"
+        case .infra10: L("10 Гц · инфразвук, часто срезается")
+        case .sub20: L("20 Гц · нижняя граница слуха")
+        case .khz17: L("17 кГц · слышат подростки")
+        case .khz18: L("18 кГц · для AirPlay и Bluetooth")
+        case .khz19: L("19 кГц · запасной вариант")
+        case .khz20: L("20 кГц · рекомендуется")
+        case .khz22: L("22 кГц · нужен выход ≥ 48 кГц")
         }
     }
 
     var shortTitle: String {
         switch self {
-        case .infra10: "10 Гц"
-        case .sub20: "20 Гц"
-        case .khz17: "17 кГц"
-        case .khz18: "18 кГц"
-        case .khz19: "19 кГц"
-        case .khz20: "20 кГц"
-        case .khz22: "22 кГц"
+        case .infra10: L("10 Гц")
+        case .sub20: L("20 Гц")
+        case .khz17: L("17 кГц")
+        case .khz18: L("18 кГц")
+        case .khz19: L("19 кГц")
+        case .khz20: L("20 кГц")
+        case .khz22: L("22 кГц")
         }
     }
 
     var summary: String {
         switch self {
         case .infra10:
-            "Ниже порога слышимости человека. Не все тракты его пропускают: разделительные конденсаторы и фильтры ВЧ-среза в усилителе часто режут всё ниже 20 Гц, и детектор сигнала тона не увидит."
+            L("Ниже порога слышимости человека. Не все тракты его пропускают: разделительные конденсаторы и фильтры ВЧ-среза в усилителе часто режут всё ниже 20 Гц, и детектор сигнала тона не увидит.")
         case .sub20:
-            "Формально на границе слышимости: тон не различим как звук, но крупные напольные колонки могут отдавать лёгким гулом и заметным ходом диффузора."
+            L("Формально на границе слышимости: тон не различим как звук, но крупные напольные колонки могут отдавать лёгким гулом и заметным ходом диффузора.")
         case .khz17:
-            "Не слышат почти все люди старше 25 лет, но подростки, дети и домашние животные слышат хорошо. Берите, только если верхние пресеты не будят усилитель."
+            L("Не слышат почти все люди старше 25 лет, но подростки, дети и домашние животные слышат хорошо. Берите, только если верхние пресеты не будят усилитель.")
         case .khz18:
-            "Неслышимо для подавляющего большинства взрослых. Компромисс, если 19–20 кГц теряются в тракте."
+            L("Неслышимо для подавляющего большинства взрослых. Компромисс, если 19–20 кГц теряются в тракте.")
         case .khz19:
-            "Неслышимо практически для всех. Основной запасной вариант, если на 20 кГц усилитель не просыпается."
+            L("Неслышимо практически для всех. Основной запасной вариант, если на 20 кГц усилитель не просыпается.")
         case .khz20:
-            "Верхняя граница слышимости человека, реально не слышит никто. Проходит через тракт 44,1 кГц и выше — универсальный выбор по умолчанию."
+            L("Верхняя граница слышимости человека, реально не слышит никто. Проходит через тракт 44,1 кГц и выше — универсальный выбор по умолчанию.")
         case .khz22:
-            "Гарантированно неслышимо, но требует выхода 48 кГц и выше: на 44,1 кГц частота упирается в Найквиста и будет подавлена фильтром ЦАП."
+            L("Гарантированно неслышимо, но требует выхода 48 кГц и выше: на 44,1 кГц частота упирается в Найквиста и будет подавлена фильтром ЦАП.")
         }
     }
 
@@ -119,11 +119,11 @@ enum PulseDuration: Double, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .ms250: "0,25 с"
-        case .ms500: "0,5 с"
-        case .s1: "1 с"
-        case .s2: "2 с"
-        case .s3: "3 с"
+        case .ms250: L("0,25 с")
+        case .ms500: L("0,5 с")
+        case .s1: L("1 с")
+        case .s2: L("2 с")
+        case .s3: L("3 с")
         }
     }
 }
@@ -136,9 +136,9 @@ enum RouteHoldMode: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .auto: "Автоматически"
-        case .always: "Всегда"
-        case .never: "Никогда"
+        case .auto: L("Автоматически")
+        case .always: L("Всегда")
+        case .never: L("Никогда")
         }
     }
 
@@ -160,6 +160,7 @@ final class AppSettings {
         static let level = "pulseLevel"
         static let routeHold = "routeHoldMode"
         static let adaptFrequency = "adaptFrequencyToRoute"
+        static let pauseWhenIdle = "pauseWhenIdle"
         static let autoStart = "autoStart"
         static let launchAtLogin = "launchAtLogin"
     }
@@ -182,6 +183,9 @@ final class AppSettings {
 
     /// Не трогает выбор пользователя, влияет только на то, что играется.
     var adaptFrequencyToRoute: Bool { didSet { defaults.set(adaptFrequencyToRoute, forKey: Key.adaptFrequency) } }
+
+    /// Пока движок играет, coreaudiod держит PreventUserIdleSystemSleep и мак не засыпает.
+    var pauseWhenIdle: Bool { didSet { defaults.set(pauseWhenIdle, forKey: Key.pauseWhenIdle) } }
 
     var autoStart: Bool { didSet { defaults.set(autoStart, forKey: Key.autoStart) } }
 
@@ -206,6 +210,7 @@ final class AppSettings {
         level = storedLevel > 0 ? min(storedLevel, 1) : 0.12
         routeHold = RouteHoldMode(rawValue: defaults.string(forKey: Key.routeHold) ?? "") ?? .auto
         adaptFrequencyToRoute = defaults.object(forKey: Key.adaptFrequency) as? Bool ?? true
+        pauseWhenIdle = defaults.object(forKey: Key.pauseWhenIdle) as? Bool ?? true
         autoStart = defaults.object(forKey: Key.autoStart) as? Bool ?? true
         launchAtLogin = SMAppService.mainApp.status == .enabled
     }

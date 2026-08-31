@@ -8,9 +8,9 @@ enum LogLevel: String, CaseIterable, Sendable, Equatable {
 
     var title: String {
         switch self {
-        case .info: "Информация"
-        case .warning: "Предупреждение"
-        case .error: "Ошибка"
+        case .info: L("Информация")
+        case .warning: L("Предупреждение")
+        case .error: L("Ошибка")
         }
     }
 
@@ -34,13 +34,27 @@ struct LogEntry: Identifiable, Sendable, Equatable {
 final class AuditLog {
     private(set) var entries: [LogEntry] = []
 
+    /// Выключенная запись не пишет ни в файл, ни в список: журнал замирает на том,
+    /// что уже накоплено.
+    var isEnabled: Bool {
+        didSet {
+            guard isEnabled != oldValue else { return }
+            defaults.set(isEnabled, forKey: enabledKey)
+            record(.info, isEnabled ? L("Запись журнала включена") : L("Запись журнала выключена"))
+        }
+    }
+
     private let writer: LogFileWriter
     private let inMemoryLimit = 500
+    private let defaults: UserDefaults
+    private let enabledKey = "loggingEnabled"
 
     var fileURL: URL { writer.fileURL }
     var directoryURL: URL { writer.directoryURL }
 
-    init(fileName: String = "every-noise.log") {
+    init(fileName: String = "every-noise.log", defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        isEnabled = defaults.object(forKey: enabledKey) as? Bool ?? true
         let base = FileManager.default
             .urls(for: .libraryDirectory, in: .userDomainMask)
             .first?
@@ -51,6 +65,11 @@ final class AuditLog {
     }
 
     func log(_ level: LogLevel, _ message: String) {
+        guard isEnabled else { return }
+        record(level, message)
+    }
+
+    private func record(_ level: LogLevel, _ message: String) {
         let entry = LogEntry(date: Date(), level: level, message: message)
         entries.append(entry)
         if entries.count > inMemoryLimit {
@@ -66,7 +85,7 @@ final class AuditLog {
     func clear() {
         entries.removeAll()
         writer.truncate()
-        info("Журнал очищен")
+        info(L("Журнал очищен"))
     }
 
     func flush() { writer.flush() }
@@ -180,7 +199,7 @@ nonisolated final class LogFileWriter: @unchecked Sendable {
         try? fm.moveItem(at: fileURL, to: rotated(index: 1))
         fm.createFile(atPath: fileURL.path, contents: nil)
         currentSize = 0
-        let notice = "\(stamp.string(from: Date())) [\(LogLevel.info.rawValue)] Ротация журнала: предыдущий файл сохранён как \(rotated(index: 1).lastPathComponent)\n"
+        let notice = "\(stamp.string(from: Date())) [\(LogLevel.info.rawValue)] " + L("Ротация журнала: предыдущий файл сохранён как %@", rotated(index: 1).lastPathComponent) + "\n"
         if let data = notice.data(using: .utf8), let handle = openHandle() {
             try? handle.write(contentsOf: data)
             currentSize += UInt64(data.count)
