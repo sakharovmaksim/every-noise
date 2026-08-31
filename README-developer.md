@@ -36,7 +36,7 @@ git tag -a v1.0.0 -m "Every Noise 1.0.0" && git push origin v1.0.0
 ```
 
 Вручную: `./scripts/build-app.sh --version 1.0.0 --universal --zip`, затем
-`gh release create v1.0.0 dist/EveryNoise-1.0.0.zip --generate-notes` или загрузка архива
+`gh release create v1.0.0 dist/EveryNoise-1.0.0.zip --title 1.0.0 --generate-notes` или загрузка архива
 через веб-интерфейс. Нотаризации нет, поэтому пользователю нужно снять карантин.
 
 ## Структура

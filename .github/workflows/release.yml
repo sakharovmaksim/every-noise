@@ -17,7 +17,7 @@ jobs:
   build:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -39,7 +39,7 @@ jobs:
       - name: Проверить подпись
         run: codesign --verify --verbose "dist/Every Noise.app"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: EveryNoise-${{ steps.version.outputs.value }}
           path: dist/*.zip
@@ -51,5 +51,5 @@ jobs:
         run: |
           gh release create "${GITHUB_REF_NAME}" \
             dist/EveryNoise-${{ steps.version.outputs.value }}.zip \
-            --title "Every Noise ${{ steps.version.outputs.value }}" \
+            --title "${{ steps.version.outputs.value }}" \
             --generate-notes
