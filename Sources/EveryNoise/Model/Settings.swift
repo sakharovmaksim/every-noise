@@ -209,11 +209,11 @@ final class AppSettings {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        interval = PulseInterval(rawValue: defaults.integer(forKey: Key.interval)) ?? .s30
+        interval = PulseInterval(rawValue: defaults.integer(forKey: Key.interval)) ?? .m1
         preset = TonePreset(rawValue: defaults.string(forKey: Key.preset) ?? "") ?? .khz20
         duration = PulseDuration(rawValue: defaults.double(forKey: Key.duration)) ?? .s1
         let storedLevel = defaults.double(forKey: Key.level)
-        level = storedLevel > 0 ? AppSettings.clampedLevel(storedLevel) : 0.12
+        level = storedLevel > 0 ? AppSettings.clampedLevel(storedLevel) : 0.10
         routeHold = RouteHoldMode(rawValue: defaults.string(forKey: Key.routeHold) ?? "") ?? .auto
         adaptFrequencyToRoute = defaults.object(forKey: Key.adaptFrequency) as? Bool ?? true
         pauseWhenIdle = defaults.object(forKey: Key.pauseWhenIdle) as? Bool ?? true

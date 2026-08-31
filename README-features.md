@@ -11,9 +11,9 @@ cannot hear but the amplifier's signal detector can.
 | Setting | Values | Default |
 | --- | --- | --- |
 | Frequency | 22, 20, 19, 18, 17 kHz plus two low presets — 20 and 10 Hz | 20 kHz |
-| Interval | 15 s, 30 s, 1, 2, 3, 5, 10, 15, 30 min, 1 hour | 30 s |
+| Interval | 15 s, 30 s, 1, 2, 3, 5, 10, 15, 30 min, 1 hour | 1 min |
 | Pulse length | 0.25 / 0.5 / 1 / 2 / 3 s | 1 s |
-| Level | 1–100 % | 12 % (−18 dBFS) |
+| Level | 1–100 % | 10 % (−20 dBFS) |
 
 The **Test pulse** button in Settings, right below the frequency picker, plays a pulse with
 the current settings immediately. It works while pulses are paused too: in that case the
@@ -99,8 +99,8 @@ of the last and next pulse and the pulse counter for this session.
 ## Audit log
 
 The file is `~/Library/Logs/EveryNoise/every-noise.log`, rotated at 512 KB with 5
-generations kept — about a week of history at a 30-second interval. Writes are atomic, so
-the file stays valid under any circumstances.
+generations kept — about two weeks of history at the default one-minute interval. Writes
+are atomic, so the file stays valid under any circumstances.
 
 Recorded events: start and stop, every pulse with its settings and output device, route
 changes, frequency reductions, route hold going on and off, pauses for inactivity and sleep,

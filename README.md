@@ -32,10 +32,10 @@ login only works for an app that lives in `/Applications`.
 
 ## Using it
 
-The defaults — **20 kHz, 1 s pulse, every 30 seconds** — suit most systems. The app detects
-the connection type and adapts the frequency to it: on AirPlay and Bluetooth it plays
-18 kHz, because the AAC codec cuts everything above that, while on jack, USB and HDMI it
-plays what you picked.
+The defaults — **20 kHz, 1 s pulse, every minute, level 10 %** — suit most systems. The
+app detects the connection type and adapts the frequency to it: on AirPlay and Bluetooth it
+plays 18 kHz, because the AAC codec cuts everything above that, while on jack, USB and HDMI
+it plays what you picked.
 
 If the amplifier still falls asleep, in this order:
 
@@ -49,6 +49,12 @@ waiting for the schedule, which makes tuning much faster.
 
 If none of that helps, the amplifier's detector does not see high frequencies — try the
 20 Hz preset at no more than 10 % level.
+
+**A known-good configuration.** With an amplifier fed from an Arylic H50 (USB DAC), this is
+enough to keep it awake: **20 kHz, every minute, 0.25 s pulse, level 5 % (−26 dBFS)** —
+noticeably lighter than the defaults. If your amplifier's detector is that sensitive, you
+can dial the load down the same way; if it is not, the defaults are the safer starting
+point.
 
 <p align="center">
   <img src="images/settings.png" width="600" alt="Settings tab">

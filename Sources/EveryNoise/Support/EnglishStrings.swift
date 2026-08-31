@@ -163,7 +163,7 @@ nonisolated let englishStrings: [String: String] = [
     "Ошибка: %@": "Error: %@",
     "Длительность импульса": "Pulse length",
     "Расписание": "Schedule",
-    "Большинство усилителей засыпает через 10–20 минут тишины. Импульс раз в 30 секунд — с запасом; длиннее 1 секунды нужно, если детектор сигнала усилителя срабатывает медленно.": "Most amplifiers fall asleep after 10–20 minutes of silence, so a pulse every 30 seconds has plenty of margin. Go longer than 1 second if the amplifier's signal detector is slow.",
+    "Большинство усилителей засыпает через 10–20 минут тишины. Импульс раз в минуту — с запасом; длиннее 1 секунды нужно, если детектор сигнала усилителя срабатывает медленно.": "Most amplifiers fall asleep after 10–20 minutes of silence, so a pulse every minute has plenty of margin. Go longer than 1 second if the amplifier's signal detector is slow.",
     "Тон": "Tone",
     "тихо": "quiet",
     "громко": "loud",
