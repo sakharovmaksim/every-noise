@@ -34,7 +34,9 @@ Tools модуль `PackageDescription` рассинхронизирован с 
 ## Релиз
 
 По пушу тега `v*` workflow `.github/workflows/release.yml` собирает universal binary на
-раннере `macos-26` и публикует релиз с архивом:
+раннере `macos-26` и публикует релиз с архивом. Если релиз с таким тегом уже есть, workflow
+не падает, а заменяет в нём архив (`gh release upload --clobber`) и обновляет заголовок —
+так что перезапуск сборки на том же теге безопасен:
 
 ```bash
 git tag -a v1.0.0 -m "Every Noise 1.0.0" && git push origin v1.0.0

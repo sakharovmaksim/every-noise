@@ -40,9 +40,9 @@ enum PulseInterval: Int, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// Разбор частот — в README.
+/// Разбор частот — в README. Порядок кейсов задаёт порядок в пикерах.
 enum TonePreset: String, CaseIterable, Identifiable, Sendable {
-    case infra10, sub20, khz17, khz18, khz19, khz20, khz22
+    case khz22, khz20, khz19, khz18, khz17, sub20, infra10
 
     var id: String { rawValue }
 
@@ -60,10 +60,10 @@ enum TonePreset: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .infra10: "10 Гц · инфразвук"
-        case .sub20: "20 Гц · нижний порог"
+        case .infra10: "Ниже слуха · 10 Гц"
+        case .sub20: "Ниже слуха · 20 Гц"
         case .khz17: "17 кГц · слышат подростки"
-        case .khz18: "18 кГц"
+        case .khz18: "18 кГц · для AirPlay и Bluetooth"
         case .khz19: "19 кГц · запасной вариант"
         case .khz20: "20 кГц · рекомендуется"
         case .khz22: "22 кГц · нужен выход ≥ 48 кГц"

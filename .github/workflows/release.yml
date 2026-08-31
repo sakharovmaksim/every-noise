@@ -48,8 +48,13 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.value }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            dist/EveryNoise-${{ steps.version.outputs.value }}.zip \
-            --title "${{ steps.version.outputs.value }}" \
-            --generate-notes
+          ASSET="dist/EveryNoise-${VERSION}.zip"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Релиз $GITHUB_REF_NAME уже есть — обновляю файл и заголовок"
+            gh release upload "$GITHUB_REF_NAME" "$ASSET" --clobber
+            gh release edit "$GITHUB_REF_NAME" --title "$VERSION"
+          else
+            gh release create "$GITHUB_REF_NAME" "$ASSET" --title "$VERSION" --generate-notes
+          fi
