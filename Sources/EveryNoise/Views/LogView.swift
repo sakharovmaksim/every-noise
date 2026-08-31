@@ -10,25 +10,8 @@ struct LogView: View {
         @Bindable var log = model.log
 
         VStack(spacing: 0) {
-            if entries.isEmpty {
-                ContentUnavailableView(
-                    L("Записей нет"),
-                    systemImage: "list.bullet.rectangle",
-                    description: Text(model.log.isEnabled
-                        ? L("События появятся, как только приложение начнёт воспроизводить импульсы.")
-                        : L("Запись журнала выключена."))
-                )
-            } else {
-                List(entries) { entry in
-                    LogRow(entry: entry)
-                        .listRowSeparator(.visible)
-                }
-                .listStyle(.inset)
-                .alternatingRowBackgrounds()
-            }
-        }
-        .safeAreaInset(edge: .top) {
-            if !model.log.isEnabled {
+            // Полоса нужна только над списком: на пустом журнале то же самое говорит заглушка.
+            if !model.log.isEnabled, !entries.isEmpty {
                 Label(L("Запись выключена — новые события не сохраняются"), systemImage: "pause.circle")
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -36,6 +19,19 @@ struct LogView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .background(.bar)
+                Divider()
+            }
+
+            if entries.isEmpty {
+                emptyState
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List(entries) { entry in
+                    LogRow(entry: entry)
+                        .listRowSeparator(.visible)
+                }
+                .listStyle(.inset)
+                .alternatingRowBackgrounds()
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -51,6 +47,29 @@ struct LogView: View {
                 }
                 .pickerStyle(.menu)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var emptyState: some View {
+        if !model.log.isEnabled {
+            ContentUnavailableView(
+                L("Запись выключена"),
+                systemImage: "pause.circle",
+                description: Text(L("Новые события не сохраняются. Включите запись флажком внизу."))
+            )
+        } else if filter != nil {
+            ContentUnavailableView(
+                L("Ничего не найдено"),
+                systemImage: "line.3.horizontal.decrease.circle",
+                description: Text(L("Записей выбранного уровня нет — снимите фильтр."))
+            )
+        } else {
+            ContentUnavailableView(
+                L("Записей нет"),
+                systemImage: "list.bullet.rectangle",
+                description: Text(L("События появятся, как только приложение начнёт воспроизводить импульсы."))
+            )
         }
     }
 

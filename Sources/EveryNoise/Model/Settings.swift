@@ -172,11 +172,15 @@ final class AppSettings {
     var duration: PulseDuration { didSet { defaults.set(duration.rawValue, forKey: Key.duration) } }
 
     /// Амплитуда 0…1.
+    /// Присваивать свойству внутри его же didSet нельзя: макрос @Observable делает его
+    /// вычисляемым поверх хранилища, и запись уходит в бесконечную рекурсию. Значение
+    /// приводится к диапазону при чтении из настроек и ограничено самим слайдером.
     var level: Double {
-        didSet {
-            level = min(max(level, 0.01), 1)
-            defaults.set(level, forKey: Key.level)
-        }
+        didSet { defaults.set(level, forKey: Key.level) }
+    }
+
+    static func clampedLevel(_ value: Double) -> Double {
+        min(max(value, 0.01), 1)
     }
 
     var routeHold: RouteHoldMode { didSet { defaults.set(routeHold.rawValue, forKey: Key.routeHold) } }
@@ -191,11 +195,13 @@ final class AppSettings {
 
     var launchAtLogin: Bool {
         didSet {
-            guard launchAtLogin != oldValue else { return }
+            guard launchAtLogin != oldValue, !isApplyingLoginItem else { return }
             defaults.set(launchAtLogin, forKey: Key.launchAtLogin)
             applyLaunchAtLogin()
         }
     }
+
+    @ObservationIgnored private var isApplyingLoginItem = false
 
     @ObservationIgnored var onLoginItemError: ((String) -> Void)?
 
@@ -207,7 +213,7 @@ final class AppSettings {
         preset = TonePreset(rawValue: defaults.string(forKey: Key.preset) ?? "") ?? .khz20
         duration = PulseDuration(rawValue: defaults.double(forKey: Key.duration)) ?? .s1
         let storedLevel = defaults.double(forKey: Key.level)
-        level = storedLevel > 0 ? min(storedLevel, 1) : 0.12
+        level = storedLevel > 0 ? AppSettings.clampedLevel(storedLevel) : 0.12
         routeHold = RouteHoldMode(rawValue: defaults.string(forKey: Key.routeHold) ?? "") ?? .auto
         adaptFrequencyToRoute = defaults.object(forKey: Key.adaptFrequency) as? Bool ?? true
         pauseWhenIdle = defaults.object(forKey: Key.pauseWhenIdle) as? Bool ?? true
@@ -224,7 +230,10 @@ final class AppSettings {
             }
         } catch {
             let description = error.localizedDescription
+            // Откат в didSet того же свойства — снова через сеттер, поэтому защищаемся флагом.
+            isApplyingLoginItem = true
             launchAtLogin = SMAppService.mainApp.status == .enabled
+            isApplyingLoginItem = false
             onLoginItemError?(description)
         }
     }

@@ -1,6 +1,10 @@
 // Английские строки. Ключ — русский текст из кода; недостающий ключ выводится как есть.
 nonisolated let englishStrings: [String: String] = [
     "Протестировать импульс": "Test pulse",
+    "Запись выключена": "Logging is off",
+    "Новые события не сохраняются. Включите запись флажком внизу.": "New events are not being saved. Turn logging on with the checkbox below.",
+    "Ничего не найдено": "Nothing found",
+    "Записей выбранного уровня нет — снимите фильтр.": "There are no entries of the selected level — clear the filter.",
     "Язык": "Language",
     "Every Noise — работает": "Every Noise — running",
     "Every Noise — остановлено": "Every Noise — stopped",

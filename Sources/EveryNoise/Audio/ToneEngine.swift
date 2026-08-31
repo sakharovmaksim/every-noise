@@ -96,7 +96,7 @@ final class ToneEngine {
         let key = BufferKey(
             frequency: effective,
             duration: duration,
-            level: level,
+            level: min(max(level, 0), 1),
             sampleRate: format.sampleRate,
             channels: format.channelCount
         )
